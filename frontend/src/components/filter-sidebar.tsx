@@ -4,9 +4,16 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, X } from "lucide-react"
+import { Filters } from "@/components/restaurant-menu"
 
-// --- Accordion Section (same logic, cleaner visuals) ---
+// --- Interface for Props ---
+interface FilterSidebarProps {
+  currentFilters: Filters;
+  onFilterChange: (newFilters: Partial<Filters>) => void;
+}
+
+// --- Accordion Section (Reusable Component) ---
 const FilterSection = ({
   title,
   children,
@@ -61,51 +68,77 @@ const FilterSection = ({
   )
 }
 
-export function FilterSidebar() {
-  const [selectedCuisines, setSelectedCuisines] = useState<string[]>([])
-  const [selectedRating, setSelectedRating] = useState<string>("")
-  const [selectedPrice, setSelectedPrice] = useState<string>("")
-
+export function FilterSidebar({ currentFilters, onFilterChange }: FilterSidebarProps) {
+  
+  // Cuisines Data
   const cuisines = [
     "Italian", "Chinese", "Indian", "Mexican", "Japanese",
     "Thai", "American", "Mediterranean", "French", "Korean",
   ]
 
+  // --- Handlers ---
+  // (Removed toggleCategory handler since it's handled in MenuPage now)
+
   const toggleCuisine = (cuisine: string) => {
-    setSelectedCuisines((prev) =>
-      prev.includes(cuisine) ? prev.filter((c) => c !== cuisine) : [...prev, cuisine]
-    )
+    const current = currentFilters.cuisines;
+    const updated = current.includes(cuisine)
+      ? current.filter((c) => c !== cuisine)
+      : [...current, cuisine];
+    
+    onFilterChange({ cuisines: updated });
+  }
+
+  const setRating = (rating: string) => {
+    const value = currentFilters.rating === rating ? "" : rating;
+    onFilterChange({ rating: value });
+  }
+
+  const setPrice = (price: string) => {
+    const value = currentFilters.price === price ? "" : price;
+    onFilterChange({ price: value });
   }
 
   const clearFilters = () => {
-    setSelectedCuisines([])
-    setSelectedRating("")
-    setSelectedPrice("")
+    onFilterChange({
+      categories: [], // Also clears categories
+      cuisines: [],
+      rating: "",
+      price: "",
+    });
   }
+
+  // Helper to check if filters are active
+  const hasActiveFilters = 
+    currentFilters.categories.length > 0 ||
+    currentFilters.cuisines.length > 0 || 
+    currentFilters.rating || 
+    currentFilters.price;
 
   return (
     <motion.div
       initial={{ opacity: 0, x: -30 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5 }}
-      className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-xl border border-amber-200 p-6 sticky top-24"
+      className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-xl border border-amber-200 p-6"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-bold text-amber-800">Filter Menu</h3>
+        <h3 className="text-xl font-bold text-amber-800">Filters</h3>
         <Button
           variant="ghost"
           size="sm"
           onClick={clearFilters}
-          className="text-orange-600 hover:text-orange-700"
+          className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 px-2"
         >
-          Clear
+          Clear All
         </Button>
       </div>
 
-      {/* Cuisine Type */}
+      {/* Note: Categories Section removed from here as it is now horizontal in MenuPage */}
+
+      {/* 1. Cuisine Type */}
       <FilterSection title="Cuisine Type" defaultOpen={true}>
-        <div className="space-y-1 max-h-48 overflow-y-auto pr-2">
+        <div className="space-y-1 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
           {cuisines.map((cuisine) => (
             <label
               key={cuisine}
@@ -113,9 +146,9 @@ export function FilterSidebar() {
             >
               <input
                 type="checkbox"
-                checked={selectedCuisines.includes(cuisine)}
+                checked={currentFilters.cuisines.includes(cuisine)}
                 onChange={() => toggleCuisine(cuisine)}
-                className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 accent-orange-600"
               />
               <span className="text-sm text-gray-800">{cuisine}</span>
             </label>
@@ -123,10 +156,10 @@ export function FilterSidebar() {
         </div>
       </FilterSection>
 
-      {/* Rating */}
-      <FilterSection title="Rating">
+      {/* 2. Rating */}
+      <FilterSection title="Rating" defaultOpen={false}>
         <div className="space-y-1">
-          {["4.5+", "4.0+", "3.5+", "3.0+"].map((rating) => (
+          {["4.5", "4.0", "3.5", "3.0"].map((rating) => (
             <label
               key={rating}
               className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-orange-50 transition-colors"
@@ -135,18 +168,18 @@ export function FilterSidebar() {
                 type="radio"
                 name="rating"
                 value={rating}
-                checked={selectedRating === rating}
-                onChange={(e) => setSelectedRating(e.target.value)}
-                className="text-orange-600 focus:ring-orange-500"
+                checked={currentFilters.rating === rating}
+                onChange={() => setRating(rating)}
+                className="text-orange-600 focus:ring-orange-500 accent-orange-600"
               />
-              <span className="text-sm text-gray-800">{rating} stars</span>
+              <span className="text-sm text-gray-800">{rating}+ stars</span>
             </label>
           ))}
         </div>
       </FilterSection>
 
-      {/* Price Range */}
-      <FilterSection title="Price Range">
+      {/* 3. Price Range */}
+      <FilterSection title="Price Range" defaultOpen={false}>
         <div className="space-y-1">
           {[ 
             { value: "$", label: "$ - Under $15" },
@@ -162,9 +195,9 @@ export function FilterSidebar() {
                 type="radio"
                 name="price"
                 value={price.value}
-                checked={selectedPrice === price.value}
-                onChange={(e) => setSelectedPrice(e.target.value)}
-                className="text-orange-600 focus:ring-orange-500"
+                checked={currentFilters.price === price.value}
+                onChange={() => setPrice(price.value)}
+                className="text-orange-600 focus:ring-orange-500 accent-orange-600"
               />
               <span className="text-sm text-gray-800">{price.label}</span>
             </label>
@@ -172,17 +205,41 @@ export function FilterSidebar() {
         </div>
       </FilterSection>
 
-      {/* Active Filters Section */}
-      {(selectedCuisines.length > 0 || selectedRating || selectedPrice) && (
+      {/* Active Filters Badges */}
+      {hasActiveFilters && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="pt-5 border-t border-amber-100 mt-4"
         >
-          <h4 className="font-semibold text-amber-800 mb-3">Active Filters</h4>
+          <h4 className="font-semibold text-amber-800 mb-3 text-sm">Active Filters</h4>
           <div className="flex flex-wrap gap-2">
             <AnimatePresence>
-              {selectedCuisines.map((cuisine) => (
+              {/* Categories Badges - Still show them here if you want to be able to remove them from sidebar too, 
+                  but the main control is now top bar. Let's keep them for consistency. */}
+              {currentFilters.categories.map((cat) => (
+                <motion.div
+                  key={cat}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Badge className="bg-orange-600 text-white hover:bg-orange-700 pl-2 pr-1 py-1 cursor-pointer" 
+                    onClick={() => {
+                       // We need to pass this up to the parent if we want to remove it from here
+                       const current = currentFilters.categories;
+                       const updated = current.filter((c) => c !== cat);
+                       onFilterChange({ categories: updated });
+                    }}>
+                    {cat}
+                    <X size={14} className="ml-1" />
+                  </Badge>
+                </motion.div>
+              ))}
+
+              {/* Cuisines Badges */}
+              {currentFilters.cuisines.map((cuisine) => (
                 <motion.div
                   key={cuisine}
                   initial={{ opacity: 0, scale: 0.8 }}
@@ -190,54 +247,37 @@ export function FilterSidebar() {
                   exit={{ opacity: 0, scale: 0.8 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <Badge className="bg-orange-100 text-orange-800 font-medium">
+                  <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-200 pl-2 pr-1 py-1 cursor-pointer" onClick={() => toggleCuisine(cuisine)}>
                     {cuisine}
-                    <button
-                      onClick={() => toggleCuisine(cuisine)}
-                      className="ml-1 text-orange-600 hover:text-orange-800"
-                    >
-                      &times;
-                    </button>
+                    <X size={14} className="ml-1" />
                   </Badge>
                 </motion.div>
               ))}
 
-              {selectedRating && (
+              {currentFilters.rating && (
                 <motion.div
-                  key="rating"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.2 }}
+                   key="rating"
+                   initial={{ opacity: 0, scale: 0.8 }}
+                   animate={{ opacity: 1, scale: 1 }}
+                   exit={{ opacity: 0, scale: 0.8 }}
                 >
-                  <Badge className="bg-orange-100 text-orange-800 font-medium">
-                    {selectedRating} stars
-                    <button
-                      onClick={() => setSelectedRating("")}
-                      className="ml-1 text-orange-600 hover:text-orange-800"
-                    >
-                      &times;
-                    </button>
+                  <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-200 pl-2 pr-1 py-1 cursor-pointer" onClick={() => setRating(currentFilters.rating)}>
+                    {currentFilters.rating}+ Stars
+                    <X size={14} className="ml-1" />
                   </Badge>
                 </motion.div>
               )}
 
-              {selectedPrice && (
+              {currentFilters.price && (
                 <motion.div
-                  key="price"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.2 }}
+                   key="price"
+                   initial={{ opacity: 0, scale: 0.8 }}
+                   animate={{ opacity: 1, scale: 1 }}
+                   exit={{ opacity: 0, scale: 0.8 }}
                 >
-                  <Badge className="bg-orange-100 text-orange-800 font-medium">
-                    {selectedPrice}
-                    <button
-                      onClick={() => setSelectedPrice("")}
-                      className="ml-1 text-orange-600 hover:text-orange-800"
-                    >
-                      &times;
-                    </button>
+                  <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-200 pl-2 pr-1 py-1 cursor-pointer" onClick={() => setPrice(currentFilters.price)}>
+                    {currentFilters.price}
+                    <X size={14} className="ml-1" />
                   </Badge>
                 </motion.div>
               )}
