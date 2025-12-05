@@ -1,7 +1,6 @@
 import { motion } from "framer-motion"
-
+import { useCart } from "@/lib/cart-context"
 // --- Data & Type Definitions ---
-
 export type MenuItem = {
   id: number;
   name: string;
@@ -15,9 +14,9 @@ export type MenuItem = {
 
 export type Filters = {
   categories: string[]; // NEW: Filter by category
-  cuisines: string[]; 
-  rating: string;     
-  price: string;      
+  cuisines: string[];
+  rating: string;
+  price: string;
 };
 
 // Updated Menu Items with Categories
@@ -74,7 +73,7 @@ export const menuItems: MenuItem[] = [
   },
   {
     id: 6,
-    name: "Ramen Noodles", 
+    name: "Ramen Noodles",
     description: "Classic Japanese noodles served in a savory broth.",
     price: 12.99,
     cuisine: "Japanese",
@@ -133,9 +132,9 @@ const priceRanges: { [key: string]: { min: number; max: number | null } } = {
 };
 
 export default function RestaurantMenu({ filters }: { filters: Filters }) {
-
+const { dispatch } = useCart();
   const filteredItems = menuItems.filter((item) => {
-    
+
     // 1. Category Filter (NEW)
     if (filters.categories.length > 0 && !filters.categories.includes(item.category)) {
       return false;
@@ -191,7 +190,7 @@ export default function RestaurantMenu({ filters }: { filters: Filters }) {
                 <img
                   src={item.image}
                   alt={item.name}
-                  onError={(e) => {e.currentTarget.src = "https://placehold.co/600x400/orange/white?text=" + item.name.replace(/ /g, "+")}}
+                  onError={(e) => { e.currentTarget.src = "https://placehold.co/600x400/orange/white?text=" + item.name.replace(/ /g, "+") }}
                   className="w-full h-full object-cover rounded-t-3xl transition-transform duration-500 hover:scale-110"
                 />
               </div>
@@ -207,9 +206,26 @@ export default function RestaurantMenu({ filters }: { filters: Filters }) {
 
                 <div className="flex items-center justify-between mt-4">
                   <span className="font-semibold text-amber-600 text-lg">${item.price.toFixed(2)}</span>
-                  <button className="bg-amber-600 text-white px-4 py-2 rounded-full text-sm hover:bg-amber-700 transition transform active:scale-95">
+                  <button
+                    onClick={() =>
+                      dispatch({
+                        type: "ADD_ITEM",
+                        payload: {
+                          id: String(item.id),
+                          name: item.name,
+                          description: item.description,
+                          price: item.price,
+                          image: item.image,
+                          category: item.category,
+                          rating: item.rating,
+                        }
+                      })
+                    }
+                    className="bg-amber-600 text-white px-4 py-2 rounded-full text-sm hover:bg-amber-700 transition transform active:scale-95"
+                  >
                     Add to Cart
                   </button>
+
                 </div>
               </div>
 
@@ -217,9 +233,9 @@ export default function RestaurantMenu({ filters }: { filters: Filters }) {
           ))
         ) : (
           <div className="col-span-full text-center py-12">
-             <div className="text-6xl mb-4">🥗</div>
-             <h3 className="text-xl font-semibold text-gray-900">No items found</h3>
-             <p className="text-gray-500 mt-2">Try adjusting your filters to find what you're looking for.</p>
+            <div className="text-6xl mb-4">🥗</div>
+            <h3 className="text-xl font-semibold text-gray-900">No items found</h3>
+            <p className="text-gray-500 mt-2">Try adjusting your filters to find what you're looking for.</p>
           </div>
         )}
       </div>
