@@ -5,41 +5,60 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Badge } from "@/components/ui/badge"
 import { ShoppingCart, Plus, Minus, Trash2, ArrowRight } from "lucide-react"
 import { useCart } from "@/lib/cart-context"
-import { useNavigate } from "react-router-dom" // ✅ Import useNavigate
+import { useNavigate } from "react-router-dom"
+import { cartService } from "@/services/cartService"
+import { useState } from "react"
 
 export function CartSidebar() {
   const { state, dispatch } = useCart()
-  const navigate = useNavigate() // ✅ Create navigate function
+  const navigate = useNavigate()
+  const [loading, setLoading] = useState(false)
 
-  const updateQuantity = (id: string, quantity: number) => {
+  // ✅ Update quantity via cartService
+  const updateQuantity = async (id: string, quantity: number) => {
     if (quantity < 1) return
-    dispatch({ type: "UPDATE_QUANTITY", payload: { id, quantity } })
+    setLoading(true)
+    try {
+      await cartService.updateCartItem(id, quantity)
+      dispatch({ type: "UPDATE_QUANTITY", payload: { id, quantity } })
+    } catch (err) {
+      console.error("Failed to update cart item", err)
+    }
+    setLoading(false)
   }
 
-  const removeItem = (id: string) => {
-    dispatch({ type: "REMOVE_ITEM", payload: id })
+  // ✅ Remove item via cartService
+  const removeItem = async (id: string) => {
+    setLoading(true)
+    try {
+      await cartService.removeFromCart(id)
+      dispatch({ type: "REMOVE_ITEM", payload: id })
+    } catch (err) {
+      console.error("Failed to remove cart item", err)
+    }
+    setLoading(false)
   }
 
-  const clearCart = () => {
-    dispatch({ type: "CLEAR_CART" })
+  // ✅ Clear cart via cartService
+  const clearCart = async () => {
+    if (!confirm("Are you sure you want to clear the cart?")) return
+    setLoading(true)
+    try {
+      await cartService.clearCart()
+      dispatch({ type: "CLEAR_CART" })
+    } catch (err) {
+      console.error("Failed to clear cart", err)
+    }
+    setLoading(false)
   }
 
-  // ✅ Function to handle checkout navigation
+  // ✅ Navigate to checkout
   const handleCheckout = () => {
     if (state.items.length === 0) {
       alert("Your cart is empty!")
       return
     }
-    
-    // Navigate to checkout page
     navigate("/checkout")
-    
-    // Close the cart sidebar (if needed)
-    // You might need to add ref or state management for this
-    const sheet = document.querySelector('[data-state="open"]')
-    if (sheet) {
-      // Close logic depends on your sheet implementation
-    }
   }
 
   return (
@@ -54,6 +73,7 @@ export function CartSidebar() {
           )}
         </Button>
       </SheetTrigger>
+
       <SheetContent className="w-full sm:max-w-md flex flex-col">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
@@ -92,7 +112,7 @@ export function CartSidebar() {
                           size="icon"
                           className="w-7 h-7"
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          disabled={item.quantity <= 1}
+                          disabled={item.quantity <= 1 || loading}
                         >
                           <Minus className="w-3 h-3" />
                         </Button>
@@ -102,6 +122,7 @@ export function CartSidebar() {
                           size="icon"
                           className="w-7 h-7"
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          disabled={loading}
                         >
                           <Plus className="w-3 h-3" />
                         </Button>
@@ -111,6 +132,7 @@ export function CartSidebar() {
                         size="icon"
                         className="w-7 h-7 text-destructive hover:text-destructive"
                         onClick={() => removeItem(item.id)}
+                        disabled={loading}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -130,7 +152,6 @@ export function CartSidebar() {
                 <span className="font-bold text-lg text-primary">Rs. {state.total.toFixed(2)}</span>
               </div>
               
-              {/* Tax and Delivery Fee Estimation */}
               <div className="text-sm text-muted-foreground space-y-1">
                 <div className="flex justify-between">
                   <span>Tax (15% est.):</span>
@@ -145,7 +166,7 @@ export function CartSidebar() {
                   <span>- Rs. 510.00</span>
                 </div>
               </div>
-              
+
               <div className="border-t pt-2">
                 <div className="flex justify-between items-center text-lg font-bold">
                   <span>Estimated Total:</span>
@@ -153,14 +174,13 @@ export function CartSidebar() {
                 </div>
               </div>
             </div>
-            
+
             <div className="space-y-2 mt-4">
-              {/* ✅ Updated Checkout Button */}
               <Button 
                 className="w-full" 
                 size="lg"
                 onClick={handleCheckout}
-                disabled={state.items.length === 0}
+                disabled={state.items.length === 0 || loading}
               >
                 Proceed to Checkout
                 <ArrowRight className="ml-2 w-4 h-4" />
@@ -171,6 +191,7 @@ export function CartSidebar() {
                   variant="outline" 
                   className="flex-1" 
                   onClick={() => navigate("/menu")}
+                  disabled={loading}
                 >
                   Add More Items
                 </Button>
@@ -178,11 +199,12 @@ export function CartSidebar() {
                   variant="destructive" 
                   className="flex-1" 
                   onClick={clearCart}
+                  disabled={loading}
                 >
                   Clear Cart
                 </Button>
               </div>
-              
+
               <p className="text-xs text-muted-foreground text-center mt-2">
                 Prices may change based on location and time
               </p>
