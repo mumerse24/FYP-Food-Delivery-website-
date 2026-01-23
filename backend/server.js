@@ -5,6 +5,7 @@ const helmet = require("helmet")
 const rateLimit = require("express-rate-limit")
 require("dotenv").config()
 
+// ✅ 1. FIRST create app
 const app = express()
 
 // Validate required environment variables on startup
@@ -89,53 +90,6 @@ app.use(express.urlencoded({
 const { globalErrorHandler } = require("./middleware/errorHandler")
 const logger = require("./utils/logger")
 
-// MongoDB connection with .env variable
-const MONGODB_URI = process.env.MONGODB_URI
-
-if (!MONGODB_URI) {
-  console.error("❌ MONGODB_URI is not defined in .env file")
-  process.exit(1)
-}
-
-console.log(`🔗 Connecting to MongoDB: ${MONGODB_URI.replace(/:([^:@]+)@/, ':****@')}`) // Hide password in logs
-
-mongoose
-  .connect(MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    serverSelectionTimeoutMS: 10000,
-    socketTimeoutMS: 45000,
-    retryWrites: true,
-    w: "majority"
-  })
-  .then(() => {
-    console.log("✅ MongoDB connected successfully")
-    console.log(`📊 Database: ${mongoose.connection.name}`)
-    console.log(`🔌 Host: ${mongoose.connection.host}`)
-    console.log(`📈 Port: ${mongoose.connection.port}`)
-  })
-  .catch((err) => {
-    console.error("❌ MongoDB connection error:", err.message)
-    console.log("💡 Please check:")
-    console.log("   1. MongoDB is running")
-    console.log("   2. MONGODB_URI in .env is correct")
-    console.log("   3. Network connectivity")
-    process.exit(1)
-  })
-
-// Connection events
-mongoose.connection.on("disconnected", () => {
-  console.warn("⚠️ MongoDB disconnected")
-})
-
-mongoose.connection.on("reconnected", () => {
-  console.log("🔄 MongoDB reconnected")
-})
-
-mongoose.connection.on("error", (err) => {
-  console.error("❌ MongoDB error:", err.message)
-})
-
 // Request logging middleware
 app.use((req, res, next) => {
   const startTime = Date.now()
@@ -154,6 +108,7 @@ app.use((req, res, next) => {
   next()
 })
 
+// ✅ 2. THEN import and use routes (app is now defined)
 // Routes with rate limiting
 app.use("/api/auth", authLimiter, require("./routes/auth"))
 app.use("/api/restaurants", apiLimiter, require("./routes/restaurants"))
@@ -163,10 +118,17 @@ app.use("/api/cart", apiLimiter, require("./routes/cart"))
 app.use("/api/admin", authLimiter, require("./routes/admin"))
 app.use("/api/contact", apiLimiter, require("./routes/contact"))
 
+// ✅ Add seed routes AFTER app is defined
+app.use("/api/seed", apiLimiter, require("./routes/seedroutes"))
+
 // Add admin authentication routes
 const adminAuthRoutes = require("./routes/admin/auth")
 app.use("/api/admin/auth", authLimiter, adminAuthRoutes)
+// server.js mein (app.use(cors()) ke baad):
+app.use(express.static("public")) // ← Add this line
 
+// Phir aapke images available honge:
+// http://localhost:5000/images/menu/Chicken%20Burger.jpg
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   const healthStatus = {
@@ -247,6 +209,53 @@ app.post("/api/admin/init", async (req, res) => {
   }
 })
 
+// MongoDB connection with .env variable
+const MONGODB_URI = process.env.MONGODB_URI
+
+if (!MONGODB_URI) {
+  console.error("❌ MONGODB_URI is not defined in .env file")
+  process.exit(1)
+}
+
+console.log(`🔗 Connecting to MongoDB: ${MONGODB_URI.replace(/:([^:@]+)@/, ':****@')}`) // Hide password in logs
+
+mongoose
+  .connect(MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+    retryWrites: true,
+    w: "majority"
+  })
+  .then(() => {
+    console.log("✅ MongoDB connected successfully")
+    console.log(`📊 Database: ${mongoose.connection.name}`)
+    console.log(`🔌 Host: ${mongoose.connection.host}`)
+    console.log(`📈 Port: ${mongoose.connection.port}`)
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB connection error:", err.message)
+    console.log("💡 Please check:")
+    console.log("   1. MongoDB is running")
+    console.log("   2. MONGODB_URI in .env is correct")
+    console.log("   3. Network connectivity")
+    process.exit(1)
+  })
+
+// Connection events
+mongoose.connection.on("disconnected", () => {
+  console.warn("⚠️ MongoDB disconnected")
+})
+
+mongoose.connection.on("reconnected", () => {
+  console.log("🔄 MongoDB reconnected")
+})
+
+mongoose.connection.on("error", (err) => {
+  console.error("❌ MongoDB error:", err.message)
+})
+
 // Global error handler
 app.use(globalErrorHandler)
 
@@ -272,7 +281,6 @@ if (process.env.NODE_ENV === "production") {
 }
 
 // Graceful shutdown
-// Graceful shutdown
 const shutdown = async () => {
   console.log("🛑 Shutdown signal received")
   
@@ -281,7 +289,7 @@ const shutdown = async () => {
     console.log("✅ HTTP server closed")
     
     try {
-      // Close MongoDB connection (no callback)
+      // Close MongoDB connection
       await mongoose.connection.close(false)
       console.log("✅ MongoDB connection closed")
       process.exit(0)
@@ -299,6 +307,7 @@ const shutdown = async () => {
 }
 process.on("SIGTERM", shutdown)
 process.on("SIGINT", shutdown)
+
 const PORT = process.env.PORT || 5000
 const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`)
@@ -306,6 +315,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`📡 API URL: http://localhost:${PORT}/api`)
   console.log(`🔧 Admin API: http://localhost:${PORT}/api/admin`)
   console.log(`🩺 Health check: http://localhost:${PORT}/api/health`)
+  console.log(`🌱 Seed routes: http://localhost:${PORT}/api/seed`)
   console.log(`🔗 MongoDB: ${mongoose.connection.readyState === 1 ? "Connected" : "Disconnected"}`)
 })
 
