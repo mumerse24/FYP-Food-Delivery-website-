@@ -1,30 +1,63 @@
-import { Routes, Route } from "react-router-dom"
+import { Routes, Route, Navigate } from "react-router-dom"
 import { Provider } from "react-redux"
 import { store } from "./store/store"
 import { ThemeProvider } from "./components/theme-provider"
-import { CartProvider } from "./lib/cart-context" // ✅ import this
+import { CartProvider } from "./lib/cart-context"
+
+// Pages
 import HomePage from "./pages/HomePage"
 import MenuPage from "./pages/MenuPage"
 import AboutPage from "./pages/AboutPage"
 import ContactPage from "./pages/ContactPage"
 import RestaurantPage from "./pages/RestaurantPage"
 import RegisterRestaurantPage from "./pages/RegisterRestaurantPage"
+import CheckoutPage from "./pages/Checkout"
+
+// Admin - All admin files are in pages folder
 import AdminPage from "./pages/AdminPage"
+import AdminLogin from "./pages/admin-login" // ✅ Correct path
+
+// ✅ Admin Protected Route Component
+const AdminRoute = ({ children }: { children: JSX.Element }) => {
+  const token = localStorage.getItem("adminToken")
+  return token ? children : <Navigate to="/admin/login" replace />
+}
 
 function App() {
   return (
     <Provider store={store}>
       <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-        <CartProvider>  {/* ✅ wrap everything here */}
+        <CartProvider>
           <div className="min-h-screen bg-background font-sans antialiased">
             <Routes>
+              {/* Public Routes */}
               <Route path="/" element={<HomePage />} />
               <Route path="/menu" element={<MenuPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/restaurant/:id" element={<RestaurantPage />} />
               <Route path="/register-restaurant" element={<RegisterRestaurantPage />} />
-              <Route path="/admin" element={<AdminPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+
+              {/* Admin Routes */}
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/adminpage" element={<AdminPage />} />
+              
+              {/* ✅ Protected Admin Dashboard */}
+              <Route
+                path="/admin/dashboard"
+                element={
+                  <AdminRoute>
+                    <AdminPage />
+                  </AdminRoute>
+                }
+              />
+              
+              {/* ✅ Redirect /admin to /admin/dashboard */}
+              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+
+              {/* ✅ Catch-all route - redirect to home */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
         </CartProvider>

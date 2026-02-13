@@ -24,8 +24,10 @@
     "lucide-react": "^0.263.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-icons": "^5.5.0",
     "react-redux": "^9.0.4",
     "react-router-dom": "^6.30.1",
+    "redux-persist": "^6.0.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^2.0.0",
     "typescript": "^5"

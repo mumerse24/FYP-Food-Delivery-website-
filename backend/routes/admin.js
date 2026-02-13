@@ -7,6 +7,56 @@ const MenuItem = require("../models/MenuItem")
 const { adminAuth } = require("../middleware/auth")
 
 const router = express.Router()
+// @route   POST /api/admin/login
+// @desc    Admin login
+// @access  Public
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body
+
+    // ✅ Find admin
+    const admin = await User.findOne({ email, role: "admin" })
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      })
+    }
+
+    // ✅ Compare password
+    const isMatch = await admin.comparePassword(password)
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      })
+    }
+
+    // ✅ Create token
+    const jwt = require("jsonwebtoken")
+    const token = jwt.sign(
+      { id: admin._id, role: admin.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    )
+
+    res.json({
+      success: true,
+      token,
+      admin: {
+        id: admin._id,
+        name: admin.name,
+        email: admin.email,
+      },
+    })
+  } catch (error) {
+    console.error("Admin login error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
 
 // @route   GET /api/admin/dashboard
 // @desc    Get admin dashboard statistics

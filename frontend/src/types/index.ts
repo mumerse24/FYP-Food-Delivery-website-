@@ -28,6 +28,7 @@ export interface Restaurant {
 }
 
 export interface MenuItem {
+  originalPrice: any
   _id: string
   restaurant: string
   name: string
@@ -36,6 +37,8 @@ export interface MenuItem {
   category: string
   image: string
   isAvailable: boolean
+  cuisine: string   // ✅ string hona chahiye, method nahi
+  rating?: number   // ✅ optional rating
   ingredients?: string[]
   allergens?: string[]
   nutritionalInfo?: {
@@ -45,6 +48,7 @@ export interface MenuItem {
     fat: number
   }
 }
+
 
 export interface CartItem {
   menuItem: MenuItem
@@ -69,6 +73,12 @@ export interface ApiResponse<T> {
   success: boolean
   data: T
   message?: string
+}
+export interface Filters {
+  categories: string[]
+  cuisines: string[]
+  rating: string
+  price: string
 }
 
 export interface ApiError {

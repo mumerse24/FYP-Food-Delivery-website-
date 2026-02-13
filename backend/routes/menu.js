@@ -9,6 +9,9 @@ const router = express.Router()
 // @route   GET /api/menu/restaurant/:restaurantId
 // @desc    Get menu items for a specific restaurant
 // @access  Public
+// @route   GET /api/menu/restaurant/:restaurantId
+// @desc    Get menu items for a specific restaurant
+// @access  Public
 router.get(
   "/restaurant/:restaurantId",
   [
@@ -44,21 +47,14 @@ router.get(
         query.$text = { $search: search }
       }
 
-      const menuItems = await MenuItem.find(query).populate("restaurant", "name").sort({ category: 1, name: 1 })
+      const menuItems = await MenuItem.find(query)
+        .populate("restaurant", "name")
+        .sort({ category: 1, name: 1 })
 
-      // Group by category
-      const groupedMenu = menuItems.reduce((acc, item) => {
-        const category = item.category
-        if (!acc[category]) {
-          acc[category] = []
-        }
-        acc[category].push(item)
-        return acc
-      }, {})
-
+      // ✅ STEP 1 & 2: Remove grouping, send array directly
       res.json({
         success: true,
-        data: groupedMenu,
+        data: menuItems,   // ✅ array
         total: menuItems.length,
       })
     } catch (error) {
@@ -70,6 +66,7 @@ router.get(
     }
   },
 )
+
 
 // @route   GET /api/menu/:id
 // @desc    Get single menu item

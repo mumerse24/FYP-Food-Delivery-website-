@@ -22,12 +22,13 @@ export function Header() {
     setAuthMode("signin")
     setAuthModalOpen(true)
   }
-
+  const handleAdminLogin = () => {
+    navigate("/admin/login")
+  }
   const openSignUp = () => {
     setAuthMode("signup")
     setAuthModalOpen(true)
   }
-
   const handleLogout = () => {
     dispatch(logout())
     navigate("/") // redirect to homepage after logout
@@ -92,6 +93,7 @@ export function Header() {
                   <LogIn className="w-4 h-4 mr-2" />
                   Sign In
                 </Button>
+
                 <Button
                   size="sm"
                   onClick={openSignUp}
@@ -99,6 +101,17 @@ export function Header() {
                 >
                   <UserPlus className="w-4 h-4 mr-2" />
                   Sign Up
+                </Button>
+
+                {/* ✅ ADMIN LOGIN BUTTON */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAdminLogin}
+
+                  className="border-amber-500 text-amber-600 hover:bg-amber-50"
+                >
+                  Admin Login
                 </Button>
               </>
             )}
@@ -143,6 +156,7 @@ export function Header() {
                     </Button>
                   ) : (
                     <div className="flex flex-col space-y-3 pt-4">
+                      {/* Sign In */}
                       <Button
                         variant="outline"
                         onClick={openSignIn}
@@ -151,12 +165,23 @@ export function Header() {
                         <LogIn className="w-5 h-5 mr-3" />
                         Sign In
                       </Button>
+
+                      {/* Sign Up */}
                       <Button
                         onClick={openSignUp}
                         className="justify-start bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
                       >
                         <UserPlus className="w-5 h-5 mr-3" />
                         Sign Up
+                      </Button>
+
+                      {/* ✅ Admin Login */}
+                      <Button
+                        variant="outline"
+                        onClick={handleAdminLogin}
+                        className="justify-start border-amber-500 text-amber-600 hover:bg-amber-50"
+                      >
+                        Admin Login
                       </Button>
                     </div>
                   )}

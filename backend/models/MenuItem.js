@@ -22,25 +22,21 @@ const menuItemSchema = new mongoose.Schema(
       type: String,
       required: [true, "Category is required"],
       enum: [
-        "Appetizers",
-        "Main Course",
-        "Desserts",
-        "Beverages",
-        "Salads",
-        "Soups",
-        "Pizza",
         "Burgers",
-        "Sandwiches",
-        "Pasta",
-        "Rice",
-        "Noodles",
-        "Seafood",
-        "Vegetarian",
-        "Vegan",
-        "Specials",
-        "Combos",
+        "Pizza",
         "Sides",
+        "Chinese",      // ← Add this
+        "Salads",       // ← Add this  
+        "Beverages",    // ← Add this
+        "Desserts",     // ← Add this
+        "Main Course",  // ← Add this
+        "Appetizers",   // ← Add this
+        "Fast Food",    // ← Add this
+        "Indian",       // ← Add this
+        "Italian",      // ← Add this
+        "Other"         // ← Add this
       ],
+      default: "Other"
     },
     price: {
       type: Number,
