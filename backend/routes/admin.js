@@ -7,6 +7,7 @@ const MenuItem = require("../models/MenuItem")
 const { adminAuth } = require("../middleware/auth")
 
 const router = express.Router()
+
 // @route   POST /api/admin/login
 // @desc    Admin login
 // @access  Public
@@ -757,5 +758,133 @@ router.get("/system/health", adminAuth, async (req, res) => {
     })
   }
 })
+
+// ==========================================
+// 📦 NEW: ORDER MANAGEMENT (Accept/Reject)
+// ==========================================
+
+// @route   PUT /api/admin/orders/:id/status
+// @desc    Update order status (e.g., confirm, reject, preparing)
+// @access  Private (Admin only)
+router.put(
+  "/orders/:id/status",
+  adminAuth,
+  [
+    body("status").isIn(["confirmed", "preparing", "ready", "out_for_delivery", "delivered", "cancelled", "rejected"]).withMessage("Invalid status"),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: errors.array(),
+        })
+      }
+
+      const { status } = req.body;
+      const order = await Order.findByIdAndUpdate(
+        req.params.id,
+        { status },
+        { new: true }
+      );
+
+      if (!order) {
+        return res.status(404).json({ success: false, message: "Order not found" });
+      }
+
+      res.json({
+        success: true,
+        message: `Order marked as ${status}`,
+        data: order
+      });
+    } catch (error) {
+      console.error("Update order status error:", error);
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+);
+
+// ==========================================
+// 🍔 NEW: MENU MANAGEMENT (Add/Update/Delete)
+// ==========================================
+
+// @route   POST /api/admin/menu
+// @desc    Add a new menu item
+// @access  Private (Admin only)
+router.post(
+  "/menu",
+  adminAuth,
+  [
+    body("name").notEmpty().withMessage("Name is required"),
+    body("price").isNumeric().withMessage("Price must be a number"),
+    body("category").notEmpty().withMessage("Category is required"),
+    body("restaurant").notEmpty().withMessage("Restaurant ID is required"),
+    body("description").optional(),
+    body("image").optional(), // URL string
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+
+      const newItem = new MenuItem({
+        ...req.body,
+        isAvailable: true
+      });
+
+      await newItem.save();
+
+      res.status(201).json({
+        success: true,
+        message: "Menu item added successfully",
+        data: newItem
+      });
+    } catch (error) {
+      console.error("Add menu item error:", error);
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+);
+
+// @route   PUT /api/admin/menu/:id
+// @desc    Update a menu item
+// @access  Private (Admin only)
+router.put("/menu/:id", adminAuth, async (req, res) => {
+  try {
+    const updatedItem = await MenuItem.findByIdAndUpdate(
+      req.params.id,
+      { $set: req.body },
+      { new: true }
+    );
+
+    if (!updatedItem) return res.status(404).json({ success: false, message: "Item not found" });
+
+    res.json({
+      success: true,
+      message: "Menu item updated",
+      data: updatedItem
+    });
+  } catch (error) {
+    console.error("Update menu error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// @route   DELETE /api/admin/menu/:id
+// @desc    Delete a menu item
+// @access  Private (Admin only)
+router.delete("/menu/:id", adminAuth, async (req, res) => {
+  try {
+    const deletedItem = await MenuItem.findByIdAndDelete(req.params.id);
+    if (!deletedItem) return res.status(404).json({ success: false, message: "Item not found" });
+
+    res.json({ success: true, message: "Menu item deleted" });
+  } catch (error) {
+    console.error("Delete menu error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
 module.exports = router

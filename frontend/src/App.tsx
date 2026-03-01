@@ -11,11 +11,13 @@ import AboutPage from "./pages/AboutPage"
 import ContactPage from "./pages/ContactPage"
 import RestaurantPage from "./pages/RestaurantPage"
 import RegisterRestaurantPage from "./pages/RegisterRestaurantPage"
-import CheckoutPage from "./pages/Checkout"
+import CheckoutPage from "./pages/Checkout" // ✅ Changed to CheckoutPage
+import OrderConfirmationPage from "./pages/SuccessPage" // ✅ NEW
+import SuccessPage from "./pages/SuccessPage" // ✅ NEW
 
 // Admin - All admin files are in pages folder
 import AdminPage from "./pages/AdminPage"
-import AdminLogin from "./pages/admin-login" // ✅ Correct path
+import AdminLogin from "./pages/admin-login"
 
 // ✅ Admin Protected Route Component
 const AdminRoute = ({ children }: { children: JSX.Element }) => {
@@ -37,7 +39,9 @@ function App() {
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/restaurant/:id" element={<RestaurantPage />} />
               <Route path="/register-restaurant" element={<RegisterRestaurantPage />} />
-              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} /> {/* ✅ Updated */}
+              <Route path="/order-confirmation" element={<OrderConfirmationPage />} /> {/* ✅ NEW */}
+              <Route path="/success" element={<SuccessPage />} /> {/* ✅ NEW */}
 
               {/* Admin Routes */}
               <Route path="/admin/login" element={<AdminLogin />} />

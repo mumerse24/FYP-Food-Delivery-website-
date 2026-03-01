@@ -69,10 +69,10 @@ const AdminLogin = () => {
     console.log("🔐 Login attempt started...")
     console.log("📧 Email:", formData.email)
     
-    if (!validateForm()) {
-      console.log("❌ Form validation failed")
-      return
-    }
+    // if (!validateForm()) {
+    //   console.log("❌ Form validation failed")
+    //   return
+    // }
 
     setLoading(true)
     setError("")
