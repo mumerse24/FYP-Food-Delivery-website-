@@ -10,25 +10,12 @@ interface AuthState {
   isAuthenticated: boolean
 }
 
-// Check local storage for normal user or admin data
-const storedUser = localStorage.getItem("user");
-const storedAdmin = localStorage.getItem("adminData");
-const storedToken = localStorage.getItem("token") || localStorage.getItem("adminToken");
-
-let initialUser = null;
-if (storedUser && storedUser !== "null") {
-  initialUser = JSON.parse(storedUser);
-} else if (storedAdmin && storedAdmin !== "null") {
-  initialUser = JSON.parse(storedAdmin);
-  initialUser.role = "admin"; // Ensure role is explicitly set for safety
-}
-
 const initialState: AuthState = {
-  user: initialUser,
-  token: storedToken,
+  user: JSON.parse(localStorage.getItem("user") || "null"),
+  token: localStorage.getItem("token"),
   isLoading: false,
   error: null,
-  isAuthenticated: !!storedToken,
+  isAuthenticated: !!localStorage.getItem("token"),
 }
 
 // Async thunks for API calls

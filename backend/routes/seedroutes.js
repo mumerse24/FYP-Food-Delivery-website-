@@ -97,62 +97,62 @@ router.post("/restaurant", async (req, res) => {
         console.log("✅ Restaurant created:", restaurant._id)
 
         // Create menu items
-        const menuItems = [
-            {
-                name: "Chicken Burger",
-                description: "Juicy chicken patty with fresh vegetables and special sauce",
-                price: 550,
-                image: "https://img.freepik.com/free-photo/big-sandwich-hamburger-with-juicy-beef-burger-cheese-tomato-red-onion-wooden-table_2829-19631.jpg?w=800&t=st=1703383299~exp=1703383899~hmac=abc123",
-                category: "Burgers",
-                restaurant: restaurant._id,
-                isAvailable: true,
-            },
-            {
-                name: "Pepperoni Pizza",
-                description: "Classic pizza with pepperoni and extra cheese",
-                price: 1200,
-                image: "https://img.freepik.com/free-photo/top-view-pepperoni-pizza-with-mushroom-sausages-bell-pepper-olive-corn-black-wooden_141793-2158.jpg?w=800&t=st=1703383356~exp=1703383956~hmac=def456",
-                category: "Pizza",
-                restaurant: restaurant._id,
-                isAvailable: true,
-            },
-            {
-                name: "French Fries",
-                description: "Crispy golden fries served with ketchup",
-                price: 250,
-                image: "https://img.freepik.com/free-photo/french-fries-ketchup_1205-113.jpg?w=800&t=st=1703383399~exp=1703383999~hmac=ghi789",
-                category: "Sides",
-                restaurant: restaurant._id,
-                isAvailable: true,
-            },
-            {
-                name: "Chicken Chow Mein",
-                description: "Stir-fried noodles with chicken and vegetables",
-                price: 750,
-                image: "https://img.freepik.com/free-photo/chow-mein-noodles-with-chicken-vegetables_1203-3570.jpg?w=800&t=st=1703383456~exp=1703384056~hmac=jkl012",
-                category: "Chinese",
-                restaurant: restaurant._id,
-                isAvailable: true,
-            },
-            {
-                name: "Caesar Salad",
-                description: "Fresh romaine lettuce with Caesar dressing and croutons",
-                price: 450,
-                image: "https://img.freepik.com/free-photo/top-view-vegetable-salad-with-fork-dark-desk_140725-101785.jpg?w=800&t=st=1703383500~exp=1703384100~hmac=mno345",
-                category: "Salads",
-                restaurant: restaurant._id,
-                isAvailable: true,
-            },
-            {
-                name: "Mango Lassi",
-                description: "Refreshing yogurt-based mango drink",
-                price: 200,
-                image: "https://img.freepik.com/free-photo/glass-mango-lassi-with-mint-leaves_1150-23456.jpg?w=800&t=st=1703383550~exp=1703384150~hmac=pqr678",
-                category: "Beverages",
-                restaurant: restaurant._id,
-                isAvailable: true,
-            }
-        ]
+       const menuItems = [
+  {
+    name: "Chicken Burger",
+    description: "Juicy chicken patty with fresh vegetables and special sauce",
+    price: 550,
+    image: "https://img.freepik.com/free-photo/big-sandwich-hamburger-with-juicy-beef-burger-cheese-tomato-red-onion-wooden-table_2829-19631.jpg?w=800&t=st=1703383299~exp=1703383899~hmac=abc123",
+    category: "Burgers",
+    restaurant: restaurant._id,
+    isAvailable: true,
+  },
+  {
+    name: "Pepperoni Pizza",
+    description: "Classic pizza with pepperoni and extra cheese",
+    price: 1200,
+    image: "https://img.freepik.com/free-photo/top-view-pepperoni-pizza-with-mushroom-sausages-bell-pepper-olive-corn-black-wooden_141793-2158.jpg?w=800&t=st=1703383356~exp=1703383956~hmac=def456",
+    category: "Pizza",
+    restaurant: restaurant._id,
+    isAvailable: true,
+  },
+  {
+    name: "French Fries",
+    description: "Crispy golden fries served with ketchup",
+    price: 250,
+    image: "https://img.freepik.com/free-photo/french-fries-ketchup_1205-113.jpg?w=800&t=st=1703383399~exp=1703383999~hmac=ghi789",
+    category: "Sides",
+    restaurant: restaurant._id,
+    isAvailable: true,
+  },
+  {
+    name: "Chicken Chow Mein",
+    description: "Stir-fried noodles with chicken and vegetables",
+    price: 750,
+    image: "https://img.freepik.com/free-photo/chow-mein-noodles-with-chicken-vegetables_1203-3570.jpg?w=800&t=st=1703383456~exp=1703384056~hmac=jkl012",
+    category: "Chinese",
+    restaurant: restaurant._id,
+    isAvailable: true,
+  },
+  {
+    name: "Caesar Salad",
+    description: "Fresh romaine lettuce with Caesar dressing and croutons",
+    price: 450,
+    image: "https://img.freepik.com/free-photo/top-view-vegetable-salad-with-fork-dark-desk_140725-101785.jpg?w=800&t=st=1703383500~exp=1703384100~hmac=mno345",
+    category: "Salads",
+    restaurant: restaurant._id,
+    isAvailable: true,
+  },
+  {
+    name: "Mango Lassi",
+    description: "Refreshing yogurt-based mango drink",
+    price: 200,
+    image: "https://img.freepik.com/free-photo/glass-mango-lassi-with-mint-leaves_1150-23456.jpg?w=800&t=st=1703383550~exp=1703384150~hmac=pqr678",
+    category: "Beverages",
+    restaurant: restaurant._id,
+    isAvailable: true,
+  }
+]
 
         const createdItems = await MenuItem.insertMany(menuItems)
         console.log("✅ Menu items created:", createdItems.length)
@@ -276,184 +276,20 @@ router.post("/simple", async (req, res) => {
     }
 })
 
-// @route   POST /api/seed/menu-items
-// @desc    Seed menu items with example data (Zinger Burger, Chicken Pizza, etc.)
-// @access  Public (development use)
-router.post("/menu-items", async (req, res) => {
-    try {
-        console.log("🌱 Seeding menu items...")
-
-        // Find an existing restaurant OR create one for the seed items
-        let restaurant = await Restaurant.findOne({ isActive: true })
-
-        if (!restaurant) {
-            console.log("No restaurant found, creating one for seed data...")
-            restaurant = new Restaurant({
-                name: "Food Delivery Restaurant",
-                email: "info@fooddelivery.com",
-                phone: "03001234567",
-                description: "Delicious food delivered to your door",
-                address: {
-                    street: "1 Main Street",
-                    city: "Karachi",
-                    state: "Sindh",
-                    zipCode: "75500",
-                    coordinates: { lat: 24.8607, lng: 67.0011 }
-                },
-                businessInfo: {
-                    taxId: "TAX-SEED-001",
-                    licenseNumber: "LIC-SEED-001",
-                    businessType: "Restaurant",
-                    registrationDate: new Date("2023-01-01")
-                },
-                owner: new mongoose.Types.ObjectId(),
-                images: {
-                    logo: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
-                    banner: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5",
-                    gallery: []
-                },
-                isActive: true,
-                isVerified: true,
-                rating: 4.5,
-                totalReviews: 50,
-                minimumOrder: 300,
-                deliveryFee: 100,
-                preparationTime: 20,
-                cuisines: ["Fast Food", "Italian", "Pakistani"],
-                deliveryTime: "30-45 minutes",
-                openingHours: "9 AM - 11 PM",
-                settings: { isAcceptingOrders: true, autoAcceptOrders: true }
-            })
-            await restaurant.save()
-            console.log("✅ Restaurant created:", restaurant._id)
-        } else {
-            console.log("✅ Using existing restaurant:", restaurant._id, restaurant.name)
-        }
-
-        // Sample menu items - matching user's requirements exactly
-        const sampleMenuItems = [
-            {
-                name: "Zinger Burger",
-                description: "Crispy chicken burger with special zinger sauce and fresh lettuce",
-                price: 450,
-                category: "Burgers",
-                images: ["https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600"],
-                restaurant: restaurant._id,
-                isAvailable: true,
-                preparationTime: "15-20 mins",
-                isPopular: true,
-            },
-            {
-                name: "Chicken Pizza",
-                description: "Cheesy pizza topped with grilled chicken and fresh vegetables",
-                price: 900,
-                category: "Pizza",
-                images: ["https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600"],
-                restaurant: restaurant._id,
-                isAvailable: true,
-                preparationTime: "20-25 mins",
-                isPopular: true,
-            },
-            {
-                name: "Beef Burger",
-                description: "Juicy beef patty with cheese, lettuce, tomato and pickles",
-                price: 550,
-                category: "Burgers",
-                images: ["https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=600"],
-                restaurant: restaurant._id,
-                isAvailable: true,
-                preparationTime: "15-20 mins",
-            },
-            {
-                name: "Pepperoni Pizza",
-                description: "Classic pepperoni pizza with extra cheese and tomato sauce",
-                price: 1100,
-                category: "Pizza",
-                images: ["https://images.unsplash.com/photo-1628840042765-356cda07504e?w=600"],
-                restaurant: restaurant._id,
-                isAvailable: true,
-                preparationTime: "20-25 mins",
-            },
-            {
-                name: "French Fries",
-                description: "Golden crispy fries served with ketchup and mayo",
-                price: 250,
-                category: "Sides",
-                images: ["https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600"],
-                restaurant: restaurant._id,
-                isAvailable: true,
-                preparationTime: "10-15 mins",
-            },
-            {
-                name: "Chicken Chow Mein",
-                description: "Stir-fried noodles with chicken and fresh vegetables",
-                price: 750,
-                category: "Chinese",
-                images: ["https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=600"],
-                restaurant: restaurant._id,
-                isAvailable: true,
-                preparationTime: "15-20 mins",
-            },
-            {
-                name: "Mango Lassi",
-                description: "Refreshing yogurt-based mango drink",
-                price: 200,
-                category: "Beverages",
-                images: ["https://images.unsplash.com/photo-1544145945-f90425340c7e?w=600"],
-                restaurant: restaurant._id,
-                isAvailable: true,
-                preparationTime: "5-10 mins",
-            },
-            {
-                name: "Chocolate Brownie",
-                description: "Warm fudgy brownie served with vanilla ice cream",
-                price: 350,
-                category: "Desserts",
-                images: ["https://images.unsplash.com/photo-1564355808539-22fda35bed7e?w=600"],
-                restaurant: restaurant._id,
-                isAvailable: true,
-                preparationTime: "5-10 mins",
-            },
-        ]
-
-        // Check which items already exist to avoid duplicates
-        const existingNames = await MenuItem.find({
-            name: { $in: sampleMenuItems.map(i => i.name) },
-            restaurant: restaurant._id
-        }).distinct("name")
-
-        const newItems = sampleMenuItems.filter(item => !existingNames.includes(item.name))
-
-        let insertedCount = 0
-        if (newItems.length > 0) {
-            await MenuItem.insertMany(newItems)
-            insertedCount = newItems.length
-            console.log(`✅ Inserted ${insertedCount} new menu items`)
-        } else {
-            console.log("✅ All menu items already exist, skipping insert")
-        }
-
-        res.json({
-            success: true,
-            message: insertedCount > 0
-                ? `${insertedCount} menu items seeded successfully`
-                : "Menu items already exist — no duplicates inserted",
-            data: {
-                restaurantId: restaurant._id,
-                restaurantName: restaurant.name,
-                newItemsInserted: insertedCount,
-                skippedItems: existingNames.length,
-                totalSampleItems: sampleMenuItems.length,
-            }
-        })
-    } catch (error) {
-        console.error("❌ Menu items seed error:", error)
-        res.status(500).json({
-            success: false,
-            message: "Failed to seed menu items",
-            error: error.message,
-        })
-    }
+// @route   GET /api/seed/check
+// @desc    Check if seeding is working
+// @access  Public
+router.get("/check", (req, res) => {
+    res.json({
+        success: true,
+        message: "Seed routes are working",
+        availableEndpoints: [
+            "POST /api/seed/restaurant - Create full restaurant",
+            "POST /api/seed/simple - Create simple restaurant",
+            "GET  /api/seed/check - This endpoint"
+        ],
+        timestamp: new Date().toISOString()
+    })
 })
 
 module.exports = router

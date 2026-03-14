@@ -6,8 +6,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { Eye, EyeOff, Mail, Lock, User, Phone, MapPin } from "lucide-react"
 import { useAppDispatch, useAppSelector } from "../store/hooks"
@@ -86,11 +85,6 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
           <DialogTitle className="text-2xl font-bold text-center bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
             {mode === "signin" ? "Welcome Back!" : "Join FoodHub"}
           </DialogTitle>
-          <VisuallyHidden>
-            <DialogDescription>
-              {mode === "signin" ? "Sign in to your account." : "Create a new account."}
-            </DialogDescription>
-          </VisuallyHidden>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-6">

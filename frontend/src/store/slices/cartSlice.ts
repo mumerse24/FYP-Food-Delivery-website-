@@ -13,27 +13,11 @@ interface CartState {
   specialInstructions: string
 }
 
-const getSanitizedInitialItems = (): CartItem[] => {
-  try {
-    const stored = localStorage.getItem("cart")
-    if (!stored) return []
-    const parsed = JSON.parse(stored)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter(item => item && item.menuItem)
-  } catch (e) {
-    return []
-  }
-}
-
-const getStoredRestaurantId = (): string | null => {
-  return localStorage.getItem("cartRestaurantId")
-}
-
 const initialState: CartState = {
-  items: getSanitizedInitialItems(),
+  items: JSON.parse(localStorage.getItem("cart") || "[]"),
   totalAmount: 0,
   totalItems: 0,
-  restaurantId: getStoredRestaurantId(),
+  restaurantId: null,
   isLoading: false,
   error: null,
   deliveryAddress: "",
@@ -42,13 +26,12 @@ const initialState: CartState = {
 
 // Calculate totals helper
 const calculateTotals = (items: CartItem[]) => {
-  const validItems = items.filter(item => item && item.menuItem)
-  const totalItems = validItems.reduce((sum, item) => sum + item.quantity, 0)
-  const totalAmount = validItems.reduce((sum, item) => sum + (item.menuItem?.price || 0) * item.quantity, 0)
+  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
+  const totalAmount = items.reduce((sum, item) => sum + item.menuItem.price * item.quantity, 0)
   return { totalItems, totalAmount }
 }
 
-// ✅ EXISTING THUNKS (tumhara code)
+// Async thunks
 export const syncCartWithServer = createAsyncThunk(
   "cart/syncCartWithServer",
   async (_, { getState, rejectWithValue }) => {
@@ -66,35 +49,31 @@ export const syncCartWithServer = createAsyncThunk(
 
 export const fetchCart = createAsyncThunk("cart/fetchCart", async (_, { rejectWithValue }) => {
   try {
-    const response = await api.get<ApiResponse<any>>("/cart")
+    const response = await api.get<ApiResponse<CartItem[]>>("/cart")
     return response.data.data
   } catch (error: any) {
     return rejectWithValue(error.response?.data?.message || "Failed to fetch cart")
   }
 })
 
-// ✅ FIXED: addToCartServer with restaurantId
 export const addToCartServer = createAsyncThunk(
   "cart/addToCartServer",
   async (
     {
       menuItemId,
       quantity,
-      restaurantId,
       specialInstructions,
     }: {
       menuItemId: string
       quantity: number
-      restaurantId: string
       specialInstructions?: string
     },
     { rejectWithValue },
   ) => {
     try {
-      const response = await api.post<ApiResponse<any>>("/cart/add", {
+      const response = await api.post<ApiResponse<CartItem>>("/cart/add", {
         menuItemId,
         quantity,
-        restaurantId,  // ✅ AB BHEJ RAHE HAIN
         specialInstructions,
       })
       return response.data.data
@@ -104,44 +83,18 @@ export const addToCartServer = createAsyncThunk(
   },
 )
 
-// ✅ NEW: Server-side quantity update thunk (plus/minus ke liye)
-export const updateCartItemServer = createAsyncThunk(
-  "cart/updateCartItemServer",
-  async (
-    {
-      itemId,
-      quantity,
-    }: {
-      itemId: string
-      quantity: number
-    },
-    { rejectWithValue },
-  ) => {
-    try {
-      const response = await api.put<ApiResponse<any>>(`/cart/update/${itemId}`, {
-        quantity,
-      })
-      return response.data.data
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || "Failed to update cart item")
-    }
-  },
-)
-
-// ✅ EXISTING: removeFromCartServer
 export const removeFromCartServer = createAsyncThunk(
   "cart/removeFromCartServer",
-  async (itemId: string, { rejectWithValue }) => {
+  async (menuItemId: string, { rejectWithValue }) => {
     try {
-      await api.delete(`/cart/remove/${itemId}`)
-      return itemId
+      await api.delete(`/cart/remove/${menuItemId}`)
+      return menuItemId
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Failed to remove item from cart")
     }
   },
 )
 
-// ✅ EXISTING: clearCartServer
 export const clearCartServer = createAsyncThunk("cart/clearCartServer", async (_, { rejectWithValue }) => {
   try {
     await api.delete("/cart/clear")
@@ -155,20 +108,18 @@ const cartSlice = createSlice({
   name: "cart",
   initialState,
   reducers: {
-    // ✅ Local reducers (existing)
     addToCart: (
       state,
       action: PayloadAction<{ menuItem: MenuItem; quantity: number; specialInstructions?: string }>,
     ) => {
       const { menuItem, quantity, specialInstructions } = action.payload
 
-      const restaurantId = typeof menuItem.restaurant === 'object' ? menuItem.restaurant._id : menuItem.restaurant
-
-      if (state.restaurantId && state.restaurantId !== restaurantId) {
+      // Check if adding from different restaurant
+      if (state.restaurantId && state.restaurantId !== menuItem.restaurant) {
         state.items = []
-        state.restaurantId = restaurantId
+        state.restaurantId = menuItem.restaurant
       } else if (!state.restaurantId) {
-        state.restaurantId = restaurantId
+        state.restaurantId = menuItem.restaurant
       }
 
       const existingItem = state.items.find((item) => item.menuItem._id === menuItem._id)
@@ -236,7 +187,6 @@ const cartSlice = createSlice({
       state.totalItems = 0
       state.restaurantId = null
       localStorage.removeItem("cart")
-      localStorage.removeItem("cartRestaurantId")
     },
 
     setDeliveryAddress: (state, action: PayloadAction<string>) => {
@@ -260,8 +210,7 @@ const cartSlice = createSlice({
       })
       .addCase(syncCartWithServer.fulfilled, (state, action) => {
         state.isLoading = false
-        // ✅ Sanitize server response
-        state.items = (action.payload || []).filter((item: any) => item && item.menuItem)
+        state.items = action.payload
         const totals = calculateTotals(state.items)
         state.totalAmount = totals.totalAmount
         state.totalItems = totals.totalItems
@@ -271,27 +220,17 @@ const cartSlice = createSlice({
         state.isLoading = false
         state.error = action.payload as string
       })
-
       // Fetch cart
       .addCase(fetchCart.fulfilled, (state, action) => {
-        const payload = action.payload as any;
-        if (payload && payload.items) {
-          state.items = (payload.items || []).filter((item: any) => item && item.menuItem);
-          state.restaurantId = typeof payload.restaurant === 'object' ? payload.restaurant._id : payload.restaurant;
-        } else if (Array.isArray(payload)) {
-          state.items = payload.filter((item: any) => item && item.menuItem);
-          if (state.items.length > 0) {
-            const firstItemRestaurant = state.items[0].menuItem.restaurant
-            state.restaurantId = typeof firstItemRestaurant === 'object' ? firstItemRestaurant._id : firstItemRestaurant
-          }
-        }
-
+        state.items = action.payload
         const totals = calculateTotals(state.items)
         state.totalAmount = totals.totalAmount
         state.totalItems = totals.totalItems
+        if (state.items.length > 0) {
+          state.restaurantId = state.items[0].menuItem.restaurant
+        }
         localStorage.setItem("cart", JSON.stringify(state.items))
       })
-
       // Clear cart server
       .addCase(clearCartServer.fulfilled, (state) => {
         state.items = []
@@ -299,73 +238,6 @@ const cartSlice = createSlice({
         state.totalItems = 0
         state.restaurantId = null
         localStorage.removeItem("cart")
-      })
-
-      // Add to cart server
-      .addCase(addToCartServer.pending, (state) => {
-        state.isLoading = true
-        state.error = null
-      })
-      .addCase(addToCartServer.fulfilled, (state, action) => {
-        state.isLoading = false
-        const updatedCart = action.payload as any;
-
-        if (updatedCart && updatedCart.items) {
-          state.items = (updatedCart.items || []).filter((item: any) => item && item.menuItem);
-        }
-
-        if (updatedCart.restaurant) {
-          state.restaurantId = typeof updatedCart.restaurant === 'object'
-            ? updatedCart.restaurant._id
-            : updatedCart.restaurant;
-        }
-
-        const totals = calculateTotals(state.items);
-        state.totalItems = totals.totalItems;
-        state.totalAmount = totals.totalAmount;
-        localStorage.setItem("cart", JSON.stringify(state.items));
-      })
-      .addCase(addToCartServer.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload as string
-      })
-
-      // Update cart item server (NEW)
-      .addCase(updateCartItemServer.pending, (state) => {
-        state.isLoading = true
-        state.error = null
-      })
-      .addCase(updateCartItemServer.fulfilled, (state, action) => {
-        state.isLoading = false
-        const updatedCart = action.payload as any;
-
-        if (updatedCart && updatedCart.items) {
-          state.items = (updatedCart.items || []).filter((item: any) => item && item.menuItem);
-        }
-
-        const totals = calculateTotals(state.items);
-        state.totalItems = totals.totalItems;
-        state.totalAmount = totals.totalAmount;
-        localStorage.setItem("cart", JSON.stringify(state.items));
-      })
-      .addCase(updateCartItemServer.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload as string
-      })
-
-      // Remove from cart server
-      .addCase(removeFromCartServer.fulfilled, (state, action) => {
-        state.items = state.items.filter((item) => item.menuItem._id !== action.payload)
-
-        if (state.items.length === 0) {
-          state.restaurantId = null
-        }
-
-        const totals = calculateTotals(state.items)
-        state.totalAmount = totals.totalAmount
-        state.totalItems = totals.totalItems
-
-        localStorage.setItem("cart", JSON.stringify(state.items))
       })
   },
 })

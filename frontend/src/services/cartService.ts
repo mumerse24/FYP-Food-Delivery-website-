@@ -3,47 +3,38 @@ import type { CartItem, ApiResponse } from "../types"
 
 export const cartService = {
   getCart: async () => {
-    const response = await api.get<ApiResponse<any>>("/cart")
+    const response = await api.get<ApiResponse<CartItem[]>>("/cart")
     return response.data
   },
 
-  // ✅ FIXED: restaurantId parameter add karo
-  addToCart: async (
-    menuItemId: string, 
-    quantity: number, 
-    restaurantId: string, // ✅ ADD THIS
-    specialInstructions?: string
-  ) => {
-    const response = await api.post<ApiResponse<any>>("/cart/add", {
+  addToCart: async (menuItemId: string, quantity: number, specialInstructions?: string) => {
+    const response = await api.post<ApiResponse<CartItem>>("/cart/add", {
       menuItemId,
       quantity,
-      restaurantId, // ✅ SEND TO BACKEND
       specialInstructions,
     })
     return response.data
   },
 
-  // ✅ NOTE: Yeh "itemId" hai (cart item ka ID, menuItemId nahi)
-  updateCartItem: async (itemId: string, quantity: number) => {
-    const response = await api.put<ApiResponse<any>>(`/cart/update/${itemId}`, {
+  updateCartItem: async (menuItemId: string, quantity: number) => {
+    const response = await api.put<ApiResponse<CartItem>>(`/cart/update/${menuItemId}`, {
       quantity,
     })
     return response.data
   },
 
-  // ✅ NOTE: Yeh bhi "itemId" hai (cart item ka ID)
-  removeFromCart: async (itemId: string) => {
-    const response = await api.delete<ApiResponse<any>>(`/cart/remove/${itemId}`)
+  removeFromCart: async (menuItemId: string) => {
+    const response = await api.delete(`/cart/remove/${menuItemId}`)
     return response.data
   },
 
   clearCart: async () => {
-    const response = await api.delete<ApiResponse<any>>("/cart/clear")
+    const response = await api.delete("/cart/clear")
     return response.data
   },
 
   syncCart: async (items: CartItem[]) => {
-    const response = await api.post<ApiResponse<any>>("/cart/sync", { items })
+    const response = await api.post<ApiResponse<CartItem[]>>("/cart/sync", { items })
     return response.data
   },
 }
