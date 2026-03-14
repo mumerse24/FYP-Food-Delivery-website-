@@ -89,7 +89,7 @@ router.post(
   "/add",
   auth,
   [
-    body("menuItemId").isMongoId().withMessage("Valid menu item ID is required"),
+    body("menuItem").isMongoId().withMessage("Valid menu item ID is required"),
     body("quantity").isInt({ min: 1 }).withMessage("Quantity must be at least 1"),
     body("customizations").optional().isArray().withMessage("Customizations must be an array"),
   ],
@@ -104,7 +104,7 @@ router.post(
         })
       }
 
-      const { menuItemId, quantity, customizations, specialInstructions } = req.body
+      const { menuItem: menuItemId, quantity, customizations, specialInstructions } = req.body
 
       // Verify menu item exists and is available
       const menuItem = await MenuItem.findById(menuItemId).populate("restaurant")
@@ -116,7 +116,12 @@ router.post(
       }
 
       // Verify restaurant is active
-     
+      if (!menuItem.restaurant.isActive || menuItem.restaurant.status !== "approved") {
+        return res.status(400).json({
+          success: false,
+          message: "Restaurant is not available",
+        })
+      }
 
       let cart = await Cart.findOne({ user: req.user.id })
 

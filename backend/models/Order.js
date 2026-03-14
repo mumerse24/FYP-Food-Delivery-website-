@@ -68,6 +68,7 @@ const orderSchema = new mongoose.Schema(
     paymentInfo: {
       method: {
         type: String,
+        enum: ["Cash", "Card", "Digital Wallet", "Online Payment"],
         required: true,
       },
       status: {
@@ -77,12 +78,7 @@ const orderSchema = new mongoose.Schema(
       },
       transactionId: String,
       paidAt: Date,
-      // Optional details based on method
-      mobileNumber: String,
-      cardLast4: String,
-      cardName: String
     },
-    tableNumber: String,
     status: {
       type: String,
       enum: [
@@ -90,23 +86,19 @@ const orderSchema = new mongoose.Schema(
         "confirmed",
         "preparing",
         "ready",
-        "accepted",
         "picked_up",
-        "on_the_way",
         "out_for_delivery",
         "delivered",
         "cancelled",
-        "rejected",
         "refunded",
       ],
       default: "pending",
     },
     orderType: {
       type: String,
-      enum: ["delivery", "pickup", "dine-in"],
+      enum: ["delivery", "pickup"],
       default: "delivery",
     },
-    assignedAt: Date,
     estimatedDeliveryTime: {
       type: Date,
       required: true,
@@ -146,21 +138,17 @@ const orderSchema = new mongoose.Schema(
   },
 )
 
-// Generate order number before validation
-orderSchema.pre("validate", async function (next) {
+// Generate order number before saving
+orderSchema.pre("save", async function (next) {
   if (!this.orderNumber) {
-    try {
-      const count = await mongoose.model("Order").countDocuments()
-      this.orderNumber = `ORD${Date.now()}${String(count + 1).padStart(4, "0")}`
-    } catch (err) {
-      return next(err)
-    }
+    const count = await mongoose.model("Order").countDocuments()
+    this.orderNumber = `ORD${Date.now()}${String(count + 1).padStart(4, "0")}`
   }
 
   // Add initial timeline entry
-  if (this.isNew && this.timeline.length === 0) {
+  if (this.isNew) {
     this.timeline.push({
-      status: this.status || "pending",
+      status: this.status,
       timestamp: new Date(),
       note: "Order placed",
     })
@@ -172,6 +160,7 @@ orderSchema.pre("validate", async function (next) {
 // Index for efficient queries
 orderSchema.index({ customer: 1, createdAt: -1 })
 orderSchema.index({ restaurant: 1, createdAt: -1 })
+orderSchema.index({ orderNumber: 1 })
 orderSchema.index({ status: 1 })
 
 module.exports = mongoose.model("Order", orderSchema)

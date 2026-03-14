@@ -15,31 +15,18 @@ router.post(
   "/",
   auth,
   [
-    body("deliveryAddress.street")
-      .if(body("orderType").equals("delivery"))
-      .notEmpty()
-      .withMessage("Street address is required for delivery"),
-    body("deliveryAddress.city")
-      .if(body("orderType").equals("delivery"))
-      .notEmpty()
-      .withMessage("City is required for delivery"),
-    body("deliveryAddress.state")
-      .if(body("orderType").equals("delivery"))
-      .notEmpty()
-      .withMessage("State is required for delivery"),
-    body("deliveryAddress.zipCode")
-      .if(body("orderType").equals("delivery"))
-      .notEmpty()
-      .withMessage("Zip code is required for delivery"),
+    body("restaurant").isMongoId().withMessage("Valid restaurant ID is required"),
+    body("items").isArray({ min: 1 }).withMessage("At least one item is required"),
+    body("deliveryAddress.street").notEmpty().withMessage("Street address is required"),
+    body("deliveryAddress.city").notEmpty().withMessage("City is required"),
+    body("deliveryAddress.state").notEmpty().withMessage("State is required"),
+    body("deliveryAddress.zipCode").notEmpty().withMessage("Zip code is required"),
     body("contactInfo.phone").isMobilePhone().withMessage("Valid phone number is required"),
     body("contactInfo.email").isEmail().withMessage("Valid email is required"),
     body("paymentInfo.method")
       .isIn(["Cash", "Card", "Digital Wallet", "Online Payment"])
       .withMessage("Invalid payment method"),
-    body("orderType")
-      .optional()
-      .isIn(["delivery", "pickup", "dine-in"])
-      .withMessage("Invalid order type"),
+    body("orderType").optional().isIn(["delivery", "pickup"]).withMessage("Invalid order type"),
   ],
   async (req, res) => {
     try {
@@ -60,22 +47,14 @@ router.post(
         paymentInfo,
         orderType = "delivery",
         specialInstructions,
-        tableNumber,
-        paymentDetails,
       } = req.body
-
-      console.log("Order body received for processing:", JSON.stringify(req.body, null, 2))
 
       // Verify restaurant exists and is active
       const restaurant = await Restaurant.findById(restaurantId)
-      if (!restaurant) {
-        return res.status(400).json({ success: false, message: "Restaurant not found" })
-      }
-
-      if (!restaurant.isActive || restaurant.status !== "approved") {
+      if (!restaurant || !restaurant.isActive || restaurant.status !== "approved") {
         return res.status(400).json({
           success: false,
-          message: `Restaurant is currently ${restaurant.status || 'inactive'}`,
+          message: "Restaurant is not available",
         })
       }
 
@@ -88,58 +67,52 @@ router.post(
         if (!menuItem || !menuItem.isAvailable) {
           return res.status(400).json({
             success: false,
-            message: `Item ${item.name || item.menuItem} is not available`,
+            message: `Item ${item.menuItem} is not available`,
           })
         }
 
         let itemPrice = menuItem.price
 
         // Calculate customization costs
-        if (item.customizations && Array.isArray(item.customizations)) {
+        if (item.customizations) {
           for (const customization of item.customizations) {
-            if (customization.selectedOptions && Array.isArray(customization.selectedOptions)) {
-              for (const option of customization.selectedOptions) {
-                itemPrice += Number(option.price) || 0
-              }
+            for (const option of customization.selectedOptions) {
+              itemPrice += option.price || 0
             }
           }
         }
 
-        const quantity = Number(item.quantity) || 1
-        const itemTotal = itemPrice * quantity
+        const itemTotal = itemPrice * item.quantity
         subtotal += itemTotal
 
         orderItems.push({
           menuItem: menuItem._id,
-          name: menuItem.name || item.name,
+          name: menuItem.name,
           price: menuItem.price,
-          quantity: quantity,
+          quantity: item.quantity,
           customizations: item.customizations || [],
           itemTotal,
-          specialInstructions: item.specialInstructions || "",
+          specialInstructions: item.specialInstructions,
         })
       }
 
       // Calculate pricing
-      const deliveryFee = orderType === "delivery" ? (Number(restaurant.deliveryInfo?.deliveryFee) || 0) : 0
+      const deliveryFee = orderType === "delivery" ? restaurant.deliveryInfo.deliveryFee : 0
       const serviceFee = Math.round(subtotal * 0.05) // 5% service fee
       const tax = Math.round(subtotal * 0.08) // 8% tax
       const total = subtotal + deliveryFee + serviceFee + tax
 
-      console.log("Pricing details computed:", { subtotal, deliveryFee, serviceFee, tax, total })
-
       // Check minimum order requirement
-      const minOrder = Number(restaurant.deliveryInfo?.minimumOrder) || 0
-      if (orderType === "delivery" && subtotal < minOrder) {
+      if (orderType === "delivery" && subtotal < restaurant.deliveryInfo.minimumOrder) {
         return res.status(400).json({
           success: false,
-          message: `Minimum order amount is Rs. ${minOrder}. (Subtotal: Rs. ${subtotal})`,
+          message: `Minimum order amount is $${restaurant.deliveryInfo.minimumOrder}`,
         })
       }
 
-      // Calculate estimated delivery time (Fallback to 45 mins if not available)
+      // Calculate estimated delivery time
       const estimatedDeliveryTime = new Date()
-      const deliveryMinutes = orderType === "delivery" ? 45 : 20
+      const deliveryMinutes = orderType === "delivery" ? 45 : 20 // 45 mins for delivery, 20 for pickup
       estimatedDeliveryTime.setMinutes(estimatedDeliveryTime.getMinutes() + deliveryMinutes)
 
       // Create order
@@ -154,87 +127,25 @@ router.post(
           tax,
           total,
         },
-        deliveryAddress: {
-          street: (deliveryAddress && deliveryAddress.street) || "N/A",
-          city: (deliveryAddress && deliveryAddress.city) || "N/A",
-          state: (deliveryAddress && deliveryAddress.state) || "N/A",
-          zipCode: (deliveryAddress && deliveryAddress.zipCode) || "N/A",
-        },
-        contactInfo: {
-          phone: contactInfo.phone,
-          email: contactInfo.email || "N/A",
-          fullName: contactInfo.fullName || "N/A" // Some schemas might use this
-        },
-        paymentInfo: {
-          method: (paymentInfo && typeof paymentInfo === 'object' ? paymentInfo.method : paymentInfo) || "cash",
-          status: "pending",
-          mobileNumber: paymentDetails?.mobileNumber || "",
-          cardLast4: paymentDetails?.cardNumber || "",
-          cardName: paymentDetails?.cardName || ""
-        },
+        deliveryAddress,
+        contactInfo,
+        paymentInfo,
         orderType,
-        tableNumber: tableNumber || "",
         estimatedDeliveryTime,
-        specialInstructions: specialInstructions || "",
+        specialInstructions,
       })
 
       await order.save()
-      console.log("New order saved ID:", order._id)
-
-      // ✅ 3. Send Notification to Admin
-      try {
-        const admin = require("firebase-admin")
-        const User = require("../models/User")
-        const Admin = require("../models/Admin")
-
-        // Find admins from both collections
-        const [usersAdmin, adminsCollection] = await Promise.all([
-          User.find({ role: "admin", fcmTokens: { $exists: true, $not: { $size: 0 } } }),
-          Admin.find({ fcmTokens: { $exists: true, $not: { $size: 0 } } })
-        ])
-
-        const allAdmins = [...usersAdmin, ...adminsCollection]
-        const fcmTokens = Array.from(new Set(allAdmins.flatMap(adm => adm.fcmTokens)))
-
-        console.log(`🔔 Found ${allAdmins.length} potential admins. Total unique tokens: ${fcmTokens.length}`)
-
-        if (fcmTokens.length > 0) {
-          const response = await admin.messaging().sendEachForMulticast({
-            tokens: fcmTokens,
-            notification: {
-              title: "🚀 New Order Received!",
-              body: `Order #${order.orderNumber || order._id.slice(-8)} for Rs. ${total}`,
-            },
-            data: {
-              orderId: order._id.toString(),
-              type: "NEW_ORDER"
-            },
-          })
-          console.log(`✅ FCM Broadcast Result: ${response.successCount} success, ${response.failureCount} failure`)
-        } else {
-          console.warn("⚠️ No FCM tokens found for any admins")
-        }
-      } catch (notifyErr) {
-        console.error("❌ Notification error:", notifyErr.message)
-      }
 
       // Clear user's cart after successful order
-      try {
-        await Cart.findOneAndDelete({ user: req.user.id })
-      } catch (cartErr) {
-        console.warn("Failed to clear cart, but order was saved:", cartErr.message)
-      }
+      await Cart.findOneAndDelete({ user: req.user.id })
 
       // Update restaurant stats
-      try {
-        await Restaurant.findByIdAndUpdate(restaurantId, {
-          $inc: { totalOrders: 1, totalRevenue: total },
-        })
-      } catch (restErr) {
-        console.warn("Failed to update restaurant stats:", restErr.message)
-      }
+      await Restaurant.findByIdAndUpdate(restaurantId, {
+        $inc: { totalOrders: 1, totalRevenue: total },
+      })
 
-      // Populate order details for response
+      // Populate order details
       const populatedOrder = await Order.findById(order._id)
         .populate("customer", "name email phone")
         .populate("restaurant", "name phone address images.logo")
@@ -246,10 +157,10 @@ router.post(
         data: populatedOrder,
       })
     } catch (error) {
-      console.error("CRITICAL: Create order error:", error)
+      console.error("Create order error:", error)
       res.status(500).json({
         success: false,
-        message: "Server error: " + error.message,
+        message: "Server error",
       })
     }
   },
@@ -366,7 +277,7 @@ router.put(
   restaurantAuth,
   [
     body("status")
-      .isIn(["confirmed", "preparing", "ready", "picked_up", "out_for_delivery", "delivered", "cancelled", "rejected"])
+      .isIn(["confirmed", "preparing", "ready", "picked_up", "out_for_delivery", "delivered", "cancelled"])
       .withMessage("Invalid status"),
     body("note").optional().isString().withMessage("Note must be a string"),
   ],
@@ -414,22 +325,6 @@ router.put(
       }
 
       await order.save()
-
-      // 🏆 Award Loyalty Points if delivered
-      if (status === "delivered") {
-        try {
-          const User = require("../models/User");
-          const pointsToEarn = Math.floor((order.pricing?.total || 0) / 100);
-          if (pointsToEarn > 0) {
-            await User.findByIdAndUpdate(order.customer, {
-              $inc: { loyaltyPoints: pointsToEarn }
-            });
-            console.log(`🏆 Awarded ${pointsToEarn} loyalty points to customer ${order.customer}`);
-          }
-        } catch (loyaltyErr) {
-          console.error("Loyalty Points Award Error:", loyaltyErr.message);
-        }
-      }
 
       res.json({
         success: true,
@@ -688,143 +583,6 @@ router.get(
         success: false,
         message: "Server error",
       })
-    }
-  },
-)
-
-// @route   PUT /api/orders/:id
-// @desc    Modify order (pending only)
-// @access  Private
-router.put(
-  "/:id",
-  auth,
-  [
-    body("items").isArray({ min: 1 }).withMessage("At least one item is required"),
-  ],
-  async (req, res) => {
-    try {
-      const { items: newItems } = req.body
-
-      const order = await Order.findById(req.params.id).populate("restaurant")
-
-      if (!order) {
-        return res.status(404).json({ success: false, message: "Order not found" })
-      }
-
-      // Check ownership
-      if (order.customer.toString() !== req.user.id) {
-        return res.status(403).json({ success: false, message: "Not authorized" })
-      }
-
-      // Check status
-      if (order.status !== "pending") {
-        return res.status(400).json({ success: false, message: "Only pending orders can be modified" })
-      }
-
-      // Verify and calculate new items
-      let subtotal = 0
-      const orderItems = []
-
-      for (const item of newItems) {
-        const menuItem = await MenuItem.findById(item.menuItem)
-        if (!menuItem || !menuItem.isAvailable) {
-          return res.status(400).json({
-            success: false,
-            message: `Item ${item.name || item.menuItem} is not available`,
-          })
-        }
-
-        let itemPrice = menuItem.price
-
-        // Calculate customization costs
-        if (item.customizations && Array.isArray(item.customizations)) {
-          for (const customization of item.customizations) {
-            if (customization.selectedOptions && Array.isArray(customization.selectedOptions)) {
-              for (const option of customization.selectedOptions) {
-                itemPrice += Number(option.price) || 0
-              }
-            }
-          }
-        }
-
-        const quantity = Number(item.quantity) || 1
-        const itemTotal = itemPrice * quantity
-        subtotal += itemTotal
-
-        orderItems.push({
-          menuItem: menuItem._id,
-          name: menuItem.name || item.name,
-          price: menuItem.price,
-          quantity: quantity,
-          customizations: item.customizations || [],
-          itemTotal,
-          specialInstructions: item.specialInstructions || "",
-        })
-      }
-
-      // Recalculate pricing
-      const restaurant = order.restaurant
-      const deliveryFee = order.orderType === "delivery" ? (Number(restaurant.deliveryInfo?.deliveryFee) || 0) : 0
-      const serviceFee = Math.round(subtotal * 0.05)
-      const tax = Math.round(subtotal * 0.08)
-      const total = subtotal + deliveryFee + serviceFee + tax
-
-      // Update order
-      order.items = orderItems
-      order.pricing = {
-        subtotal,
-        deliveryFee,
-        serviceFee,
-        tax,
-        total,
-      }
-      order.timeline.push({
-        status: "modified",
-        timestamp: new Date(),
-        note: "Order modified by customer",
-      })
-
-      await order.save()
-
-      // Notify Admin about modification
-      try {
-        const admin = require("firebase-admin")
-        const User = require("../models/User")
-        const Admin = require("../models/Admin")
-
-        const [usersAdmin, adminsCollection] = await Promise.all([
-          User.find({ role: "admin", fcmTokens: { $exists: true, $not: { $size: 0 } } }),
-          Admin.find({ fcmTokens: { $exists: true, $not: { $size: 0 } } })
-        ])
-
-        const allAdmins = [...usersAdmin, ...adminsCollection]
-        const fcmTokens = Array.from(new Set(allAdmins.flatMap(adm => adm.fcmTokens)))
-
-        if (fcmTokens.length > 0) {
-          await admin.messaging().sendEachForMulticast({
-            tokens: fcmTokens,
-            notification: {
-              title: "📝 Order Modified",
-              body: `Order #${order.orderNumber} has been updated by the customer.`,
-            },
-            data: {
-              orderId: order._id.toString(),
-              type: "ORDER_MODIFIED"
-            },
-          })
-        }
-      } catch (notifyErr) {
-        console.error("❌ Notification error:", notifyErr.message)
-      }
-
-      res.json({
-        success: true,
-        message: "Order modified successfully",
-        data: order,
-      })
-    } catch (error) {
-      console.error("Modify order error:", error)
-      res.status(500).json({ success: false, message: "Server error" })
     }
   },
 )

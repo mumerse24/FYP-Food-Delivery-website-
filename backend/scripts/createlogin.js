@@ -31,7 +31,7 @@ async function createlogin() {
 
     console.log("✅ Admin created successfully!")
     console.log("📧 Email: admin@foodexpress.com")
-    console.log("🔑 Password: 123456")
+    console.log("🔑 Password: admin123")
     console.log("🎭 Role: superadmin")
 
     process.exit(0)
@@ -42,6 +42,6 @@ async function createlogin() {
 }
 
 // Wrap call in async IIFE
-; (async () => {
+;(async () => {
   await createlogin()
 })()

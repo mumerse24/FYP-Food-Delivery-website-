@@ -1,13 +1,13 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import AuthAdmin from "../services/alogin"
-import {
-  Lock,
-  Mail,
-  Eye,
-  EyeOff,
-  ChefHat,
-  LogIn,
+import { 
+  Lock, 
+  Mail, 
+  Eye, 
+  EyeOff, 
+  ChefHat, 
+  LogIn, 
   Sparkles,
   AlertCircle,
   ShieldCheck,
@@ -17,9 +17,9 @@ import {
 import { useNavigate } from "react-router-dom"
 
 const AdminLogin = () => {
-  const [formData, setFormData] = useState({
-    email: "admin@foodexpress.com",
-    password: "admin123"
+  const [formData, setFormData] = useState({ 
+    email: "admin@foodexpress.com", 
+    password: "admin123" 
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
@@ -28,9 +28,9 @@ const AdminLogin = () => {
   const navigate = useNavigate()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
+    setFormData({ 
+      ...formData, 
+      [e.target.name]: e.target.value 
     })
     if (error) setError("")
   }
@@ -38,14 +38,25 @@ const AdminLogin = () => {
   const validateForm = () => {
     // Clear previous errors
     setError("")
-
+    
     if (!formData.email.trim()) {
       setError("Email address is required")
       return false
     }
-
+    
     if (!formData.password.trim()) {
       setError("Password is required")
+      return false
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid email address (e.g., admin@example.com)")
+      return false
+    }
+
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters long")
       return false
     }
 
@@ -54,33 +65,39 @@ const AdminLogin = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!validateForm()) return
+    
+    console.log("🔐 Login attempt started...")
+    console.log("📧 Email:", formData.email)
+    
+    if (!validateForm()) {
+      console.log("❌ Form validation failed")
+      return
+    }
 
     setLoading(true)
     setError("")
 
     try {
       console.log("🔄 Calling AuthAdmin.login()...")
-
+      
       const response = await AuthAdmin.login(formData.email, formData.password)
-
+      
       console.log("✅ Login response received:", response)
-
+      
       if (response.success && response.token) {
         console.log("🎯 Login successful!")
         console.log("🔑 Token:", response.token.substring(0, 20) + "...")
         console.log("👤 Admin data:", response.admin)
-
+        
         // Store token in localStorage
         localStorage.setItem("adminToken", response.token)
         localStorage.setItem("adminData", JSON.stringify(response.admin))
         localStorage.setItem("loginTime", Date.now().toString())
-
+        
         console.log("💾 Data stored in localStorage")
         console.log("   Token stored:", !!localStorage.getItem("adminToken"))
         console.log("   Admin data stored:", !!localStorage.getItem("adminData"))
-
+        
         setSuccess(true)
 
         // Redirect after success animation
@@ -88,16 +105,16 @@ const AdminLogin = () => {
           console.log("🔄 Redirecting to dashboard...")
           navigate("/admin/dashboard")
         }, 1500)
-
+        
       } else {
         console.log("❌ Login failed - no success or token")
         setError(response.message || "Invalid credentials. Please try again.")
       }
     } catch (err: any) {
       console.error("🔥 Login error caught:", err)
-
+      
       let errorMessage = "Login failed. Please check your credentials."
-
+      
       if (err.response?.status === 401) {
         errorMessage = "Invalid email or password"
       } else if (err.response?.status === 403) {
@@ -107,7 +124,7 @@ const AdminLogin = () => {
       } else if (err.message) {
         errorMessage = err.message
       }
-
+      
       setError(errorMessage)
     } finally {
       setLoading(false)
@@ -123,7 +140,7 @@ const AdminLogin = () => {
           <motion.div
             key={i}
             className="absolute w-32 h-32 rounded-full bg-gradient-to-r from-orange-200/20 to-amber-200/20 blur-xl"
-            initial={{
+            initial={{ 
               x: Math.random() * 100 + 'vw',
               y: Math.random() * 100 + 'vh'
             }}
@@ -147,7 +164,7 @@ const AdminLogin = () => {
         className="relative z-10 w-full max-w-md mx-4"
       >
         <div className="bg-white rounded-3xl shadow-2xl border border-orange-200/50 p-8 relative overflow-hidden backdrop-blur-sm bg-white/95">
-
+          
           {/* Animated Border Glow */}
           <motion.div
             className="absolute inset-0 rounded-3xl"
@@ -213,7 +230,7 @@ const AdminLogin = () => {
             >
               <ChefHat className="w-12 h-12 text-white" />
             </motion.div>
-
+            
             <motion.h2
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -269,8 +286,9 @@ const AdminLogin = () => {
               </label>
               <div className="relative group">
                 <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                  <Mail className={`w-5 h-5 transition-colors ${formData.email ? 'text-orange-500' : 'text-orange-400'
-                    } group-focus-within:text-orange-600`} />
+                  <Mail className={`w-5 h-5 transition-colors ${
+                    formData.email ? 'text-orange-500' : 'text-orange-400'
+                  } group-focus-within:text-orange-600`} />
                 </div>
                 <input
                   type="email"
@@ -299,8 +317,9 @@ const AdminLogin = () => {
               </label>
               <div className="relative group">
                 <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                  <Lock className={`w-5 h-5 transition-colors ${formData.password ? 'text-amber-500' : 'text-amber-400'
-                    } group-focus-within:text-amber-600`} />
+                  <Lock className={`w-5 h-5 transition-colors ${
+                    formData.password ? 'text-amber-500' : 'text-amber-400'
+                  } group-focus-within:text-amber-600`} />
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
@@ -358,7 +377,7 @@ const AdminLogin = () => {
                       </motion.div>
                       <span className="text-lg">Secure Login</span>
                       <motion.div
-                        animate={{
+                        animate={{ 
                           scale: [1, 1.2, 1],
                           opacity: [0.7, 1, 0.7]
                         }}
@@ -373,7 +392,7 @@ const AdminLogin = () => {
                     </>
                   )}
                 </div>
-
+                
                 {/* Button Shine Effect */}
                 {!loading && (
                   <motion.div
@@ -401,14 +420,14 @@ const AdminLogin = () => {
               >
                 Forgot Password?
               </button>
-
+              
               <button
                 type="button"
                 className="text-sm text-gray-500 hover:text-gray-700 font-medium transition-colors"
                 onClick={() => {
-                  setFormData({
-                    email: "admin@foodexpress.com",
-                    password: "123456"
+                  setFormData({ 
+                    email: "admin@foodexpress.com", 
+                    password: "admin123" 
                   })
                 }}
                 disabled={loading}

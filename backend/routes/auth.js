@@ -3,7 +3,6 @@ const jwt = require("jsonwebtoken")
 const bcrypt = require("bcryptjs")
 const { body, validationResult } = require("express-validator")
 const User = require("../models/User")
-const Admin = require("../models/Admin")
 const { auth } = require("../middleware/auth")
 const { AppError, catchAsync } = require("../middleware/errorHandler");
 
@@ -310,36 +309,14 @@ router.put(
   },
 )
 
-// @route   POST /api/auth/fcm-token
-// @desc    Store FCM token for push notifications
+// @route   POST /api/auth/logout
+// @desc    Logout user (client-side token removal)
 // @access  Private
-router.post("/fcm-token", auth, async (req, res) => {
-  try {
-    const { token } = req.body;
-    if (!token) {
-      return res.status(400).json({ success: false, message: "Token is required" });
-    }
-
-    let user = await User.findById(req.user.id);
-    if (!user && Admin) {
-      user = await Admin.findById(req.user.id);
-    }
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    // Add token if it doesn't exist
-    if (!user.fcmTokens.includes(token)) {
-      user.fcmTokens.push(token);
-      await user.save();
-    }
-
-    res.json({ success: true, message: "FCM token stored successfully" });
-  } catch (error) {
-    console.error("FCM token storage error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-});
+router.post("/logout", auth, (req, res) => {
+  res.json({
+    success: true,
+    message: "Logged out successfully",
+  })
+})
 
 module.exports = router

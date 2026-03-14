@@ -31,19 +31,15 @@ const adminSchema = new mongoose.Schema({
   },
   lastLogin: {
     type: Date
-  },
-  fcmTokens: {
-    type: [String],
-    default: []
   }
 }, {
   timestamps: true
 })
 
 // Hash password before saving
-adminSchema.pre("save", async function (next) {
+adminSchema.pre("save", async function(next) {
   if (!this.isModified("password")) return next()
-
+  
   try {
     const salt = await bcrypt.genSalt(10)
     this.password = await bcrypt.hash(this.password, salt)
@@ -54,12 +50,12 @@ adminSchema.pre("save", async function (next) {
 })
 
 // Method to compare password
-adminSchema.methods.comparePassword = async function (candidatePassword) {
+adminSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password)
 }
 
 // Remove password from JSON response
-adminSchema.methods.toJSON = function () {
+adminSchema.methods.toJSON = function() {
   const obj = this.toObject()
   delete obj.password
   return obj

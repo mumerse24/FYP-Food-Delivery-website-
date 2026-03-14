@@ -7,14 +7,14 @@ import { ShoppingCart, Plus, Minus, Trash2, ArrowRight } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
-import {
-  updateQuantity,
-  removeFromCart,
+import { 
+  updateQuantity, 
+  removeFromCart, 
   clearCart,
   clearCartServer,
   addToCartServer,
   syncCartWithServer,
-  removeFromCartServer
+  removeFromCartServer 
 } from "@/store/slices/cartSlice"
 import type { CartItem as CartItemType } from "@/types"
 import { toast } from "sonner" // Optional: for notifications
@@ -29,18 +29,68 @@ export function CartSidebar() {
   const { items, totalAmount, totalItems, isLoading: cartLoading } = cartState
 
   // Update quantity - sync with server
-  // ✅ SAHI FUNCTION
+  const handleUpdateQuantity = async (menuItemId: string, newQuantity: number) => {
+    if (newQuantity < 1) return
+    
+    setLoading(true)
+    try {
+      // Option 1: Update locally first, then sync with server
+      dispatch(updateQuantity({ menuItemId, quantity: newQuantity }))
+      
+      // Call server API
+      const resultAction = await dispatch(addToCartServer({ 
+        menuItemId, 
+        quantity: newQuantity 
+      }))
+      
+      if (addToCartServer.rejected.match(resultAction)) {
+        // If server fails, revert local changes or show error
+        toast.error("Failed to update item quantity on server")
+        // Optionally sync from server to get correct state
+        dispatch(syncCartWithServer())
+      }
+      
+    } catch (err) {
+      console.error("Failed to update cart item", err)
+      toast.error("Failed to update item")
+    } finally {
+      setLoading(false)
+    }
+  }
 
+  // Remove item - sync with server
+  const handleRemoveItem = async (menuItemId: string) => {
+    setLoading(true)
+    try {
+      // Remove locally first for immediate feedback
+      dispatch(removeFromCart(menuItemId))
+      
+      // Remove from server using async thunk
+      const resultAction = await dispatch(removeFromCartServer(menuItemId))
+      
+      if (removeFromCartServer.rejected.match(resultAction)) {
+        toast.error("Failed to remove item from server")
+        // Sync from server to get correct state
+        dispatch(syncCartWithServer())
+      }
+      
+    } catch (err) {
+      console.error("Failed to remove cart item", err)
+      toast.error("Failed to remove item")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Clear cart - sync with server
   const handleClearCart = async () => {
     if (!confirm("Are you sure you want to clear your cart?")) return
-
+    
     setLoading(true)
     try {
       // Clear from server first using async thunk
       const resultAction = await dispatch(clearCartServer())
-
+      
       if (clearCartServer.fulfilled.match(resultAction)) {
         // Only clear locally if server operation was successful
         dispatch(clearCart())
@@ -48,7 +98,7 @@ export function CartSidebar() {
       } else {
         toast.error("Failed to clear cart on server")
       }
-
+      
     } catch (err) {
       console.error("Failed to clear cart", err)
       toast.error("Failed to clear cart")
@@ -61,7 +111,7 @@ export function CartSidebar() {
   const handleRemoveItemSimple = (menuItemId: string) => {
     setLoading(true)
     dispatch(removeFromCart(menuItemId))
-
+    
     // Fire and forget server call
     dispatch(removeFromCartServer(menuItemId))
       .then(() => {
@@ -92,7 +142,7 @@ export function CartSidebar() {
     try {
       // Sync cart with server when opening
       const resultAction = await dispatch(syncCartWithServer())
-
+      
       if (syncCartWithServer.rejected.match(resultAction)) {
         toast.warning("Using local cart data")
       }
@@ -107,8 +157,8 @@ export function CartSidebar() {
     const subtotal = totalAmount
     const tax = subtotal * 0.15
     const deliveryFee = 150.00
-    const discount = 30.00
-
+    const discount = 510.00
+    
     return {
       subtotal,
       tax: Number(tax.toFixed(2)),
@@ -124,9 +174,9 @@ export function CartSidebar() {
   return (
     <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
       <SheetTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
+        <Button 
+          variant="ghost" 
+          size="icon" 
           className="relative"
           onClick={handleOpenCart}
         >
@@ -152,8 +202,8 @@ export function CartSidebar() {
             <div className="text-center py-8 flex flex-col items-center justify-center h-full">
               <ShoppingCart className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground mb-4">Your cart is empty</p>
-              <Button
-                variant="outline"
+              <Button 
+                variant="outline" 
                 onClick={() => {
                   setSheetOpen(false)
                   navigate("/menu")
@@ -165,120 +215,65 @@ export function CartSidebar() {
             </div>
           ) : (
             <div className="space-y-4 pb-4">
-              {items.map((item: CartItemType) => {
-                if (!item.menuItem) return null;
-
-                return (
-                  <div key={item.menuItem._id} className="flex gap-3 p-3 border rounded-lg bg-card">
-                    <div className="w-16 h-16 flex-shrink-0">
-                      <img
-                        src={item.menuItem.image || "/placeholder.svg"}
-                        alt={item.menuItem.name}
-                        className="w-full h-full object-cover rounded"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-sm truncate">{item.menuItem.name}</h4>
-                      <p className="text-primary font-semibold">
-                        Rs. {(item.menuItem.price * item.quantity).toFixed(2)}
-                        <span className="text-xs text-muted-foreground ml-2">
-                          (Rs. {item.menuItem.price.toFixed(2)} each)
-                        </span>
+              {items.map((item: CartItemType) => (
+                <div key={item.menuItem._id} className="flex gap-3 p-3 border rounded-lg bg-card">
+                  <div className="w-16 h-16 flex-shrink-0">
+                    <img
+                      src={item.menuItem.image || "/placeholder.svg"}
+                      alt={item.menuItem.name}
+                      className="w-full h-full object-cover rounded"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-sm truncate">{item.menuItem.name}</h4>
+                    <p className="text-primary font-semibold">
+                      Rs. {(item.menuItem.price * item.quantity).toFixed(2)}
+                      <span className="text-xs text-muted-foreground ml-2">
+                        (Rs. {item.menuItem.price.toFixed(2)} each)
+                      </span>
+                    </p>
+                    {item.specialInstructions && (
+                      <p className="text-xs text-muted-foreground mt-1 truncate">
+                        Note: {item.specialInstructions}
                       </p>
-                      {item.specialInstructions && (
-                        <p className="text-xs text-muted-foreground mt-1 truncate">
-                          Note: {item.specialInstructions}
-                        </p>
-                      )}
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="w-7 h-7"
-                            onClick={() => {
-                              const newQuantity = item.quantity - 1;
-
-                              if (newQuantity < 1) {
-                                // Remove item if quantity becomes 0
-                                handleRemoveItemSimple(item.menuItem._id)
-                              } else {
-                                // ✅ LOCAL UPDATE
-                                dispatch(updateQuantity({
-                                  menuItemId: item.menuItem._id,
-                                  quantity: newQuantity
-                                }))
-
-                                // ✅ SERVER UPDATE - Backend should handle decrement
-                                const restaurantId = typeof item.menuItem.restaurant === 'object'
-                                  ? item.menuItem.restaurant._id
-                                  : item.menuItem.restaurant;
-
-                                dispatch(addToCartServer({
-                                  menuItemId: item.menuItem._id,
-                                  quantity: -1,
-                                  restaurantId
-                                })).catch(err => {
-                                  console.error("Server update failed:", err)
-                                  dispatch(syncCartWithServer())
-                                })
-                              }
-                            }}
-                            disabled={item.quantity <= 1 || isAnyLoading}
-                          >
-                            <Minus className="w-3 h-3" />
-                          </Button>
-                          <span className="text-sm font-medium w-8 text-center">
-                            {item.quantity}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="w-7 h-7"
-                            onClick={() => {
-                              // ✅ Quantity increase
-                              const newQuantity = item.quantity + 1;
-
-                              // LOCAL UPDATE IMMEDIATELY
-                              dispatch(updateQuantity({
-                                menuItemId: item.menuItem._id,
-                                quantity: newQuantity
-                              }))
-
-                              // SERVER UPDATE (fire and forget)
-                              const restaurantId = typeof item.menuItem.restaurant === 'object'
-                                ? item.menuItem.restaurant._id
-                                : item.menuItem.restaurant;
-
-                              dispatch(addToCartServer({
-                                menuItemId: item.menuItem._id,
-                                quantity: 1,
-                                restaurantId
-                              })).catch(err => {
-                                console.error("Server update failed:", err)
-                                // Sync from server to fix state
-                                dispatch(syncCartWithServer())
-                              })
-                            }}
-                            disabled={isAnyLoading}
-                          >
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                        </div>
+                    )}
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-2">
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="icon"
-                          className="w-7 h-7 text-destructive hover:text-destructive"
-                          onClick={() => handleRemoveItemSimple(item.menuItem._id)}
+                          className="w-7 h-7"
+                          onClick={() => handleUpdateQuantity(item.menuItem._id, item.quantity - 1)}
+                          disabled={item.quantity <= 1 || isAnyLoading}
+                        >
+                          <Minus className="w-3 h-3" />
+                        </Button>
+                        <span className="text-sm font-medium w-8 text-center">
+                          {item.quantity}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="w-7 h-7"
+                          onClick={() => handleUpdateQuantity(item.menuItem._id, item.quantity + 1)}
                           disabled={isAnyLoading}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Plus className="w-3 h-3" />
                         </Button>
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-7 h-7 text-destructive hover:text-destructive"
+                        onClick={() => handleRemoveItemSimple(item.menuItem._id)}
+                        disabled={isAnyLoading}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -292,7 +287,7 @@ export function CartSidebar() {
                   Rs. {totals.subtotal.toFixed(2)}
                 </span>
               </div>
-
+              
               <div className="text-sm text-muted-foreground space-y-1">
                 <div className="flex justify-between">
                   <span>Tax (15% est.):</span>
@@ -304,7 +299,7 @@ export function CartSidebar() {
                 </div>
                 <div className="flex justify-between text-green-600">
                   <span>Discount:</span>
-                  <span>- Rs. {totals.discount.toFixed()}</span>
+                  <span>- Rs. {totals.discount.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -317,8 +312,8 @@ export function CartSidebar() {
             </div>
 
             <div className="space-y-2 mt-4">
-              <Button
-                className="w-full"
+              <Button 
+                className="w-full" 
                 size="lg"
                 onClick={handleCheckout}
                 disabled={items.length === 0 || isAnyLoading}
@@ -326,11 +321,11 @@ export function CartSidebar() {
                 {isAnyLoading ? "Processing..." : "Proceed to Checkout"}
                 {!isAnyLoading && <ArrowRight className="ml-2 w-4 h-4" />}
               </Button>
-
+              
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
+                <Button 
+                  variant="outline" 
+                  className="flex-1" 
                   onClick={() => {
                     setSheetOpen(false)
                     navigate("/menu")
@@ -339,9 +334,9 @@ export function CartSidebar() {
                 >
                   Add More Items
                 </Button>
-                <Button
-                  variant="destructive"
-                  className="flex-1"
+                <Button 
+                  variant="destructive" 
+                  className="flex-1" 
                   onClick={handleClearCart}
                   disabled={isAnyLoading}
                 >
