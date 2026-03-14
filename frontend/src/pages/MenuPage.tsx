@@ -11,6 +11,7 @@ import { socketService } from "@/services/socket"
 import RestaurantMenu from "@/components/restaurant-menu"
 import { MenuItemModal } from "@/components/menu-item-modal"
 import { Plus } from "lucide-react"
+import { DealsCarousel } from "@/components/deals-carousel"
 import type { Filters, MenuItem } from "@/types"
 
 // ✅ Initial Filters
@@ -133,11 +134,13 @@ export default function MenuPage() {
               Our Delicious <span className="text-amber-600">Menu</span>
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Explore our mouth-watering dishes and find your next favorite meal.
+              new Explore our mouth-watering dishes and find your next favorite meal.
             </p>
             <div className="h-1 bg-amber-500 w-24 mx-auto mt-4 rounded-full" />
           </div>
         </section>
+
+        <DealsCarousel />
 
         {/* Main Content */}
         <section className="py-12">

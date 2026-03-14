@@ -263,4 +263,52 @@ router.put(
     }
 )
 
+// @route   PUT /api/rider/location
+// @desc    Update rider's live location
+// @access  Private (Rider only)
+router.put(
+    "/location",
+    [
+        body("lat").isFloat({ min: -90, max: 90 }).withMessage("Invalid latitude"),
+        body("lng").isFloat({ min: -180, max: 180 }).withMessage("Invalid longitude"),
+        body("orderId").optional().isMongoId().withMessage("Invalid order ID")
+    ],
+    async (req, res) => {
+        try {
+            const errors = validationResult(req)
+            if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() })
+
+            const { lat, lng, orderId } = req.body
+            const riderId = req.user.id
+
+            await User.findByIdAndUpdate(riderId, {
+                currentLocation: {
+                    lat,
+                    lng,
+                    updatedAt: new Date()
+                }
+            })
+
+            // Broadcast location to anyone tracking this rider/order
+            try {
+                const io = getIO()
+                io.emit("riderLocationUpdate", {
+                    riderId,
+                    orderId,
+                    lat,
+                    lng,
+                    timestamp: new Date()
+                })
+            } catch (socketErr) {
+                console.error("Socket broadcast error:", socketErr.message)
+            }
+
+            res.json({ success: true, message: "Location updated" })
+        } catch (error) {
+            console.error("Update location error:", error)
+            res.status(500).json({ success: false, message: "Server error" })
+        }
+    }
+)
+
 module.exports = router

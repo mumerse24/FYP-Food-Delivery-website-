@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { X } from "lucide-react"
+import { X, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { MenuItem } from "@/types"
@@ -20,10 +20,12 @@ export interface MenuFormData {
     spiceLevel: "Mild" | "Medium" | "Hot" | "Extra Hot"
     dietaryTags: string[]
     restaurantId: string
+    isDeal: boolean
+    dealItems: string[]
 }
 
 const CATEGORIES = [
-    "Burgers", "Pizza", "Sides", "Chinese", "Salads",
+    "Special Deals", "Burgers", "Pizza", "Sides", "Chinese", "Salads",
     "Beverages", "Desserts", "Main Course", "Appetizers",
     "Fast Food", "Indian", "Italian", "Other"
 ]
@@ -46,6 +48,7 @@ export function MenuItemModal({ isOpen, onClose, onSaved, editingItem, restauran
     const dispatch = useAppDispatch()
     const { restaurants } = useAppSelector((state) => state.admin)
     const [isUploading, setIsUploading] = useState(false)
+    const [newDealItem, setNewDealItem] = useState("")
 
     const [menuFormData, setMenuFormData] = useState<MenuFormData>(() => {
         if (editingItem) {
@@ -62,7 +65,9 @@ export function MenuItemModal({ isOpen, onClose, onSaved, editingItem, restauran
                 preparationTime: editingItem.preparationTime || "15-20 mins",
                 spiceLevel: (editingItem.spiceLevel as "Mild" | "Medium" | "Hot" | "Extra Hot") || "Mild",
                 dietaryTags: editingItem.dietaryTags || [],
-                restaurantId: typeof editingItem.restaurant === 'object' ? editingItem.restaurant._id : (editingItem.restaurant || restaurantId)
+                restaurantId: typeof editingItem.restaurant === 'object' ? editingItem.restaurant._id : (editingItem.restaurant || restaurantId),
+                isDeal: editingItem.isDeal ?? false,
+                dealItems: editingItem.dealItems || []
             }
         }
         return {
@@ -78,7 +83,9 @@ export function MenuItemModal({ isOpen, onClose, onSaved, editingItem, restauran
             preparationTime: "15-20 mins",
             spiceLevel: "Mild",
             dietaryTags: [],
-            restaurantId: restaurantId
+            restaurantId: restaurantId,
+            isDeal: false,
+            dealItems: []
         }
     })
 
@@ -103,6 +110,23 @@ export function MenuItemModal({ isOpen, onClose, onSaved, editingItem, restauran
     const handleMenuCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, checked } = e.target
         setMenuFormData(prev => ({ ...prev, [name]: checked }))
+    }
+
+    const addDealItem = () => {
+        if (newDealItem.trim()) {
+            setMenuFormData(prev => ({
+                ...prev,
+                dealItems: [...prev.dealItems, newDealItem.trim()]
+            }))
+            setNewDealItem("")
+        }
+    }
+
+    const removeDealItem = (index: number) => {
+        setMenuFormData(prev => ({
+            ...prev,
+            dealItems: prev.dealItems.filter((_, i) => i !== index)
+        }))
     }
 
     const toggleDietaryTag = (tag: string) => {
@@ -193,7 +217,9 @@ export function MenuItemModal({ isOpen, onClose, onSaved, editingItem, restauran
                 discountPercentage: Number(menuFormData.discountPercentage) || 0,
                 preparationTime: menuFormData.preparationTime || "15-20 mins",
                 spiceLevel: menuFormData.spiceLevel,
-                dietaryTags: menuFormData.dietaryTags || []
+                dietaryTags: menuFormData.dietaryTags || [],
+                isDeal: menuFormData.isDeal,
+                dealItems: menuFormData.dealItems || []
             }
 
             if (editingItem) {
@@ -430,6 +456,48 @@ export function MenuItemModal({ isOpen, onClose, onSaved, editingItem, restauran
                                     />
                                     <span className="text-sm">Mark as Featured</span>
                                 </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        name="isDeal"
+                                        checked={menuFormData.isDeal}
+                                        onChange={handleMenuCheckboxChange}
+                                        className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                                    />
+                                    <span className="text-sm font-bold text-amber-600 italic">🔥 Professional Deal / Combo</span>
+                                </label>
+
+                                {menuFormData.isDeal && (
+                                    <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-200">
+                                        <label className="block text-sm font-bold text-amber-800 mb-2">Deal Items (Bundle)</label>
+                                        <div className="flex gap-2 mb-3">
+                                            <Input
+                                                value={newDealItem}
+                                                onChange={(e) => setNewDealItem(e.target.value)}
+                                                onKeyPress={(e) => e.key === 'Enter' && addDealItem()}
+                                                placeholder="e.g., Zinger Burger"
+                                                className="flex-1 bg-white"
+                                            />
+                                            <Button 
+                                                type="button" 
+                                                onClick={addDealItem}
+                                                className="bg-amber-600 hover:bg-amber-700 h-10 w-10 p-0"
+                                            >
+                                                <Plus className="w-5 h-5" />
+                                            </Button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {menuFormData.dealItems.map((item, idx) => (
+                                                <div key={idx} className="bg-white px-3 py-1 rounded-full border border-amber-300 text-sm flex items-center gap-2 shadow-sm">
+                                                    {item}
+                                                    <button onClick={() => removeDealItem(idx)} className="text-red-500 hover:text-red-700">
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

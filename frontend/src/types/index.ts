@@ -50,7 +50,9 @@ export interface MenuItem {
   isAvailable: boolean
   isPopular: boolean
   isFeatured: boolean
+  isDeal: boolean
   discountPercentage: number
+  dealItems?: string[]
 
   // Dietary & Preparation
   dietaryTags: string[]  // ✅ Fixed: string[] instead of never[]

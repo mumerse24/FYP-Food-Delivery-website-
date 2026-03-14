@@ -33,7 +33,7 @@ const menuItemSchema = new mongoose.Schema(
       type: String,
       required: [true, "Category is required"],
       enum: [
-        "Burgers", "Pizza", "Sides", "Chinese", "Salads", 
+        "Special Deals", "Burgers", "Pizza", "Sides", "Chinese", "Salads", 
         "Beverages", "Desserts", "Main Course", "Appetizers", 
         "Fast Food", "Indian", "Italian", "Other",
       ],
@@ -160,6 +160,17 @@ const menuItemSchema = new mongoose.Schema(
       min: 0,
       max: 100,
       default: 0,
+    },
+
+    isDeal: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    dealItems: {
+      type: [String],
+      default: [],
     },
   },
   {

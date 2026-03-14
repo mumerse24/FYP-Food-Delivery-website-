@@ -47,6 +47,11 @@ const userSchema = new mongoose.Schema(
         default: {}
       },
     },
+    currentLocation: {
+      lat: Number,
+      lng: Number,
+      updatedAt: Date
+    },
     avatar: {
       type: String,
       default: "",

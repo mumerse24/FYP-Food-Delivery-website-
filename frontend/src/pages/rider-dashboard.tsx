@@ -34,6 +34,7 @@ import {
 } from "../store/slices/riderSlice"
 import type { AppDispatch, RootState } from "../store/store"
 import socketService from "../services/socket"
+import api from "../services/api"
 
 type Tab = "orders" | "history" | "profile"
 
@@ -182,38 +183,92 @@ const OrderCard = ({ order, onStatusUpdate, isUpdating }: any) => {
 const RiderDashboard = () => {
     const [activeTab, setActiveTab] = useState<Tab>("orders")
     const [updatingId, setUpdatingId] = useState<string | null>(null)
+    const [isTrackingEnabled, setIsTrackingEnabled] = useState(false)
     const dispatch = useDispatch<AppDispatch>()
     const navigate = useNavigate()
     const { orders, profile, isLoading, error } = useSelector((state: RootState) => state.rider)
     const [history, setHistory] = useState<any[]>([])
     const riderData = JSON.parse(localStorage.getItem("riderData") || "{}")
 
+    // 1. Initial data fetch - only on mount
     useEffect(() => {
-        // Redirect if not logged in
         if (!localStorage.getItem("riderToken")) {
             navigate("/rider/login", { replace: true })
             return
         }
         dispatch(fetchRiderOrders())
         dispatch(fetchRiderProfile())
+    }, [dispatch, navigate])
 
-        // Connect to websockets
-        const socket = socketService.connect()
-        if (socket) {
-            socket.on("orderAssignedToRider", (data: { riderId: string; order: any }) => {
-                if (data.riderId === riderData._id || data.riderId === profile?._id) {
-                    dispatch(addAssignedOrder(data.order))
-                    // Play some notification sound if possible?
-                    // For now just dynamic update
-                }
-            })
+    // 2. Geolocation reporting - depends on tracking toggle and active order
+    useEffect(() => {
+        let watchId: number | null = null;
+        const activeOrder = orders.find(o => ["accepted", "picked_up", "on_the_way", "out_for_delivery"].includes(o.status));
+
+        console.log("🚲 Tracking Status Check:", {
+            hasGeolocation: !!navigator.geolocation,
+            isSecureContext: window.isSecureContext,
+            riderStatus: profile?.riderStatus,
+            hasActiveOrder: !!activeOrder,
+            activeOrderId: activeOrder?._id,
+            isTrackingEnabled
+        });
+
+        if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+            console.warn("⚠️ WARNING: This site is not running in a Secure Context (HTTPS). Geolocation WILL NOT work on most mobile browsers.");
+        }
+
+        if (navigator.geolocation && activeOrder && isTrackingEnabled) {
+            console.log(`📍 Starting track for Order: ${activeOrder.orderNumber}`);
+            watchId = navigator.geolocation.watchPosition(
+                async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    console.log(`🛰️ GPS raw: ${latitude}, ${longitude}`);
+                    try {
+                        const res = await api.put("/rider/location", {
+                            lat: latitude,
+                            lng: longitude,
+                            orderId: activeOrder._id
+                        });
+                        if (res.data.success) {
+                            console.log("✅ Location reported successfully");
+                        }
+                    } catch (err: any) {
+                        console.error("❌ Failed to report location to backend:", err.response?.data || err.message);
+                    }
+                },
+                (err) => {
+                    console.error("❌ Geolocation error:", err.code, err.message);
+                    if (err.code === 1) console.error("PERMISSION_DENIED: Please enable location access.");
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
         }
 
         return () => {
+            if (watchId !== null) {
+                console.log("📍 Stopping track...");
+                navigator.geolocation.clearWatch(watchId);
+            }
+        }
+    }, [profile?.riderStatus, orders, isTrackingEnabled])
+
+    // 3. Socket connections
+    useEffect(() => {
+        const socket = socketService.connect()
+        if (socket) {
+            socket.on("orderAssignedToRider", (data: { riderId: string; order: any }) => {
+                if (data.riderId === riderData?._id || data.riderId === profile?._id) {
+                    dispatch(addAssignedOrder(data.order))
+                }
+            })
+        }
+        return () => {
             socketService.getSocket()?.off("orderAssignedToRider")
         }
-    }, [dispatch, navigate, profile?._id, riderData._id])
+    }, [profile?._id, riderData?._id, dispatch])
 
+    // 4. History fetching
     useEffect(() => {
         if (activeTab === "history") {
             dispatch(fetchRiderHistory()).then((res: any) => {
@@ -297,21 +352,54 @@ const RiderDashboard = () => {
             <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
                 {/* Status badge */}
                 {profile && (
-                    <div className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-xl">
-                        <div
-                            className={`w-3 h-3 rounded-full ${profile.riderStatus === "available" ? "bg-green-400 animate-pulse" : "bg-yellow-400"
-                                }`}
-                        />
-                        <span className="text-sm text-white/80 capitalize">
-                            Status:{" "}
-                            <span className={profile.riderStatus === "available" ? "text-green-400" : "text-yellow-400"}>
-                                {profile.riderStatus}
+                    <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-xl">
+                            <div
+                                className={`w-3 h-3 rounded-full ${profile.riderStatus === "available" ? "bg-green-400 animate-pulse" : "bg-yellow-400"
+                                    }`}
+                            />
+                            <span className="text-sm text-white/80 capitalize">
+                                Status:{" "}
+                                <span className={profile.riderStatus === "available" ? "text-green-400" : "text-yellow-400"}>
+                                    {profile.riderStatus}
+                                </span>
                             </span>
-                        </span>
-                        {profile.stats && (
-                            <span className="ml-auto text-xs text-blue-400/60">
-                                {profile.stats.totalDeliveries} deliveries completed
-                            </span>
+                            {profile.stats && (
+                                <span className="ml-auto text-xs text-blue-400/60">
+                                    {profile.stats.totalDeliveries} deliveries completed
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Tracking Toggle - ONLY SHOW IF ONLINE AND HAS ACTIVE ORDER */}
+                        {profile.riderStatus === "available" && orders.some(o => ["accepted", "picked_up", "on_the_way"].includes(o.status)) && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex items-center justify-between p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl shadow-lg"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-lg ${isTrackingEnabled ? "bg-blue-500 text-white" : "bg-slate-700 text-slate-400"}`}>
+                                        <MapPin className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-white">Live Location Sharing</p>
+                                        <p className="text-xs text-blue-300/70">
+                                            {isTrackingEnabled ? "Customers can see you on map" : "Currently hidden from customers"}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setIsTrackingEnabled(!isTrackingEnabled)}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isTrackingEnabled ? "bg-blue-600" : "bg-slate-700"
+                                        }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isTrackingEnabled ? "translate-x-6" : "translate-x-1"
+                                            }`}
+                                    />
+                                </button>
+                            </motion.div>
                         )}
                     </div>
                 )}

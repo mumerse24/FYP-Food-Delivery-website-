@@ -159,6 +159,7 @@ router.post(
           city: (deliveryAddress && deliveryAddress.city) || "N/A",
           state: (deliveryAddress && deliveryAddress.state) || "N/A",
           zipCode: (deliveryAddress && deliveryAddress.zipCode) || "N/A",
+          coordinates: deliveryAddress?.coordinates || { lat: 34.0151, lng: 71.5805 }
         },
         contactInfo: {
           phone: contactInfo.phone,
@@ -232,6 +233,16 @@ router.post(
         })
       } catch (restErr) {
         console.warn("Failed to update restaurant stats:", restErr.message)
+      }
+
+      // ✅ Update orderCount for each MenuItem
+      try {
+        const itemUpdates = orderItems.map(item =>
+          MenuItem.findByIdAndUpdate(item.menuItem, { $inc: { orderCount: item.quantity } })
+        )
+        await Promise.all(itemUpdates)
+      } catch (err) {
+        console.error("Error updating MenuItem order counts:", err)
       }
 
       // Populate order details for response
@@ -594,6 +605,19 @@ router.post(
       restaurant.rating.average = Math.round(averageRating * 10) / 10
       restaurant.rating.count = orders.length
       await restaurant.save()
+
+      // ✅ Update rating for each MenuItem in the order
+      try {
+        const itemUpdates = order.items.map(async (item) => {
+          const menuItemDoc = await MenuItem.findById(item.menuItem)
+          if (menuItemDoc && typeof menuItemDoc.updateRating === 'function') {
+            await menuItemDoc.updateRating(food) // Using the provided `food` rating for items
+          }
+        })
+        await Promise.all(itemUpdates)
+      } catch (err) {
+        console.error("Error updating MenuItem ratings:", err)
+      }
 
       res.json({
         success: true,

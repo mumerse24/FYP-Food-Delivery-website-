@@ -15,6 +15,7 @@ import CheckoutPage from "./pages/Checkout" // ✅ Changed to CheckoutPage
 import OrderConfirmationPage from "./pages/SuccessPage" // ✅ NEW
 import SuccessPage from "./pages/SuccessPage" // ✅ NEW
 import OrderHistoryPage from "./pages/OrderHistory" // ✅ NEW
+import OrderTrackingPage from "./pages/OrderTrackingPage" // ✅ NEW
 
 // Admin - All admin files are in pages folder
 import AdminPage from "./pages/AdminPage"
@@ -54,6 +55,7 @@ function App() {
               <Route path="/order-confirmation" element={<OrderConfirmationPage />} /> {/* ✅ NEW */}
               <Route path="/success" element={<SuccessPage />} /> {/* ✅ NEW */}
               <Route path="/order-history" element={<OrderHistoryPage />} /> {/* ✅ NEW */}
+              <Route path="/order/track/:id" element={<OrderTrackingPage />} /> {/* ✅ NEW */}
 
               {/* Admin Routes */}
               <Route path="/admin/login" element={<AdminLogin />} />

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Star, Clock } from "lucide-react"
+import { Star, Clock, TrendingUp } from "lucide-react"
 
 import { useState, useEffect } from "react"
 import api from "@/services/api"
@@ -16,6 +16,7 @@ export interface FeaturedDish {
   images: string[];
   isPopular: boolean;
   category: string;
+  orderCount: number;
 }
 
 export function FeaturedDishes() {
@@ -98,7 +99,14 @@ export function FeaturedDishes() {
                       </div>
                     </div>
 
-                    <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">Order Now</Button>
+                    {dish.orderCount > 0 && (
+                      <div className="flex items-center space-x-2 text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-md w-fit mt-2">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        <span>Ordered {dish.orderCount}+ times</span>
+                      </div>
+                    )}
+
+                    <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mt-3">Order Now</Button>
                   </div>
                 </div>
               </CardContent>

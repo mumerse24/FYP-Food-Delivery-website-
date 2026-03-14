@@ -61,14 +61,14 @@ const authLimiter = rateLimit({
 // General rate limiting
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 1000, // Increased for live tracking
   message: "Too many requests from this IP, please try again later.",
 })
 
 // CORS configuration from .env
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
-  : ["http://localhost:3000", "http://localhost:5173", "http://localhost:8080"]
+  : ["http://localhost:3000", "http://localhost:5173", "http://localhost:8080", "http://10.198.254.113:3000", "http://192.168.1.100:3000"]
 
 const corsOptions = {
   origin: (origin, callback) => {

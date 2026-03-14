@@ -285,10 +285,20 @@ export default function OrderHistoryPage() {
                                                         variant="ghost"
                                                         size="sm"
                                                         className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                                                        onClick={() => navigate(`/rate-order/${order._id}`)} // Placeholder navigation
+                                                        onClick={() => navigate(`/order/track/${order._id}`)}
+                                                        disabled={!["accepted", "picked_up", "on_the_way", "out_for_delivery"].includes(order.status)}
+                                                    >
+                                                        Track Order
+                                                        <ChevronRight className="w-4 h-4 ml-1" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                                        onClick={() => navigate(`/rate-order/${order._id}`)}
                                                         disabled={order.status !== "delivered"}
                                                     >
-                                                        Track/Rate
+                                                        Rate
                                                         <ChevronRight className="w-4 h-4 ml-1" />
                                                     </Button>
                                                 </div>

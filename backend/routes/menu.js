@@ -3,6 +3,7 @@ const { body, validationResult, query, param } = require("express-validator")
 const mongoose = require("mongoose")
 const MenuItem = require("../models/MenuItem")
 const Restaurant = require("../models/Restaurant")
+const Order = require("../models/Order")
 const { auth, restaurantAuth, adminAuth } = require("../middleware/auth")
 const { getIO } = require("../utils/socket")
 
@@ -122,6 +123,151 @@ router.get(
     }
   }
 )
+
+// @route   GET /api/menu/recommendations
+// @desc    Get recommended dishes based on user's order history
+// @access  Private
+router.get("/recommendations", auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const limit = parseInt(req.query.limit) || 4;
+
+    // 1. Fetch user's past orders
+    const pastOrders = await Order.find({ customer: userId })
+      .select("items.menuItem")
+      .lean();
+
+    if (!pastOrders || pastOrders.length === 0) {
+      // Fallback: If no order history, return generally popular items
+      const popularItems = await MenuItem.find({ isAvailable: true })
+        .sort({ "rating.average": -1, orderCount: -1 })
+        .limit(limit)
+        .populate("restaurant", "name")
+        .lean();
+
+      return res.json({
+        success: true,
+        data: popularItems,
+      });
+    }
+
+    // 2. Extract unique menu items from past orders
+    const itemIds = new Set();
+    pastOrders.forEach(order => {
+      if (order.items && order.items.length > 0) {
+        order.items.forEach(item => {
+          if (item.menuItem) {
+            itemIds.add(item.menuItem.toString());
+          }
+        });
+      }
+    });
+
+    // 3. Find categories of those previously ordered items
+    const pastItems = await MenuItem.find({ _id: { $in: Array.from(itemIds) } })
+      .select("category")
+      .lean();
+
+    const preferredCategories = [...new Set(pastItems.map(item => item.category))];
+
+    // 4. Find recommended items in those preferred categories, sort by popularity and rating
+    const recommendedItems = await MenuItem.find({
+      isAvailable: true,
+      category: { $in: preferredCategories }
+    })
+      .sort({ "rating.average": -1, orderCount: -1 })
+      .limit(limit)
+      .populate("restaurant", "name")
+      .lean();
+
+    // If not enough recommendations are found within preferred categories, pad with general popular items
+    if (recommendedItems.length < limit) {
+      const remainingLimit = limit - recommendedItems.length;
+      const excludedIds = recommendedItems.map(item => item._id);
+
+      const additionalItems = await MenuItem.find({
+        isAvailable: true,
+        _id: { $nin: excludedIds }
+      })
+        .sort({ "rating.average": -1, orderCount: -1 })
+        .limit(remainingLimit)
+        .populate("restaurant", "name")
+        .lean();
+
+      recommendedItems.push(...additionalItems);
+    }
+
+    res.json({
+      success: true,
+      data: recommendedItems,
+    });
+  } catch (error) {
+    console.error("Get recommendations error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+// @route   GET /api/menu/popular/all
+// @desc    Get top popular dishes across the platform
+// @access  Public
+router.get("/popular/all", async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 8;
+    const popularItems = await MenuItem.find({ isAvailable: true })
+      .sort({ "rating.average": -1, orderCount: -1 })
+      .limit(limit)
+      .populate("restaurant", "name")
+      .lean();
+
+    res.json({
+      success: true,
+      data: popularItems,
+    });
+  } catch (error) {
+    console.error("Get popular items error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+// @route   GET /api/menu/deals/all
+// @desc    Get special deals (discounted or featured items)
+// @access  Public
+router.get("/deals/all", async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 7;
+
+    // Find items that are either featured or have a discount
+    const deals = await MenuItem.find({
+      isAvailable: true,
+      $or: [
+        { isFeatured: true },
+        { isDeal: true },
+        { discountPercentage: { $gt: 0 } }
+      ]
+    })
+      .sort({ discountPercentage: -1, "rating.average": -1 })
+      .limit(limit)
+      .populate("restaurant", "name")
+      .lean();
+
+    res.json({
+      success: true,
+      data: deals,
+    });
+  } catch (error) {
+    console.error("Get deals error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
 
 // @route   GET /api/menu/:id
 // @desc    Get single menu item by ID
@@ -460,31 +606,6 @@ router.get("/categories/list", async (req, res) => {
     })
   } catch (error) {
     console.error("Get categories error:", error)
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    })
-  }
-})
-
-// @route   GET /api/menu/popular/all
-// @desc    Get top popular dishes across the platform
-// @access  Public
-router.get("/popular/all", async (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit) || 8;
-    const popularItems = await MenuItem.find({ isAvailable: true })
-      .sort({ "rating.average": -1, orderCount: -1 }) // Sort by rating and order count
-      .limit(limit)
-      .populate("restaurant", "name")
-      .lean();
-
-    res.json({
-      success: true,
-      data: popularItems,
-    });
-  } catch (error) {
-    console.error("Get popular items error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
