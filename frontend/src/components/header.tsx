@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Search, Menu as MenuIcon, LogIn, UserPlus, LogOut, User, UtensilsCrossed, History, ShoppingBag, Home } from "lucide-react"
+import { Search, Menu as MenuIcon, LogIn, UserPlus, LogOut, User, UtensilsCrossed, History, Home } from "lucide-react"
 import { CartSidebar } from "@/components/cart-sidebar"
 import { AuthModal } from "@/components/auth-modal"
 import { useState } from "react"
@@ -25,6 +25,11 @@ export function Header() {
   const handleAdminLogin = () => {
     navigate("/admin/login")
   }
+
+  const handleRiderLogin = () => {
+    navigate("/rider/login")
+  }
+
   const openSignUp = () => {
     setAuthMode("signup")
     setAuthModalOpen(true)
@@ -77,7 +82,7 @@ export function Header() {
               <Home className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
               <span>Home</span>
             </Link>
-            
+
             <Link
               to="/menu"
               className="flex items-center space-x-2 text-foreground hover:text-amber-600 transition-all font-medium group"
@@ -115,18 +120,22 @@ export function Header() {
                   </div>
                   <div className="flex flex-col">
                     <span className="text-sm font-medium text-gray-900">{user?.name || "User"}</span>
-                    <button 
-                      onClick={handleOrderHistory}
-                      className="text-xs text-amber-600 hover:text-amber-700 text-left"
-                    >
-                      View Orders
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-amber-600 font-bold">{user?.loyaltyPoints || 0} pts</span>
+                      <span className="text-gray-300">|</span>
+                      <button
+                        onClick={handleOrderHistory}
+                        className="text-xs text-amber-600 hover:text-amber-700 text-left"
+                      >
+                        Orders
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleLogout} 
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
                   className="hover:bg-amber-50 border border-amber-200"
                 >
                   <LogOut className="w-4 h-4 mr-2" />
@@ -157,6 +166,16 @@ export function Header() {
                   className="border-amber-500 text-amber-600 hover:bg-amber-50"
                 >
                   Admin Login
+                </Button>
+
+                {/* ✅ RIDER LOGIN BUTTON */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRiderLogin}
+                  className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                >
+                  Rider Login
                 </Button>
               </>
             )}
@@ -222,7 +241,7 @@ export function Header() {
                         </div>
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">{user?.name || "User"}</p>
-                          <button 
+                          <button
                             onClick={handleOrderHistory}
                             className="text-sm text-amber-600 hover:text-amber-700 mt-1"
                           >
@@ -269,6 +288,15 @@ export function Header() {
                         className="justify-start border-amber-500 text-amber-600 hover:bg-amber-50"
                       >
                         Admin Login
+                      </Button>
+
+                      {/* ✅ Rider Login */}
+                      <Button
+                        variant="outline"
+                        onClick={handleRiderLogin}
+                        className="justify-start border-blue-500 text-blue-600 hover:bg-blue-50"
+                      >
+                        Rider Login
                       </Button>
                     </div>
                   )}

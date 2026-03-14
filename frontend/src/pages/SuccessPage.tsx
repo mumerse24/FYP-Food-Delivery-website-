@@ -3,14 +3,14 @@
 import { useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { CheckCircle, Clock, MapPin, Phone, Home } from "lucide-react"
+import { CheckCircle, Clock, MapPin, Phone, Home, Star } from "lucide-react"
 
 export default function OrderConfirmationPage() {
   const location = useLocation()
   const navigate = useNavigate()
-  
-  const { 
-    orderNumber = `ORD-${Date.now()}`, 
+
+  const {
+    orderNumber = `ORD-${Date.now()}`,
     estimatedTime = "30-45 minutes",
     customerName = "Customer",
     totalAmount = "0.00"
@@ -29,7 +29,7 @@ export default function OrderConfirmationPage() {
               Thank you, {customerName}! Your order has been placed.
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="space-y-6">
             {/* Order Details */}
             <div className="bg-gray-50 p-4 rounded-lg">
@@ -37,22 +37,34 @@ export default function OrderConfirmationPage() {
                 <span className="text-gray-600">Order Number:</span>
                 <span className="font-bold text-gray-900">{orderNumber}</span>
               </div>
-              
+
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-600">Total Amount:</span>
                 <span className="font-bold text-green-600">Rs. {totalAmount}</span>
               </div>
-              
+
               <div className="flex items-center gap-3 text-gray-600 mt-4">
                 <Clock className="w-5 h-5" />
                 <span>Estimated delivery: <strong>{estimatedTime}</strong></span>
               </div>
+
+              {/* Loyalty Points Preview */}
+              <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Star className="w-5 h-5 text-amber-600 fill-amber-600" />
+                  <span className="text-sm font-medium text-amber-900">Loyalty Points to Earn:</span>
+                </div>
+                <span className="text-sm font-bold text-amber-600">
+                  +{Math.floor(Number(totalAmount) / 100)} pts
+                </span>
+              </div>
+              <p className="text-[10px] text-amber-700/60 text-right mt-1">*Points will be awarded after successful delivery</p>
             </div>
 
             {/* Next Steps */}
             <div className="space-y-4">
               <h3 className="font-semibold text-gray-900">What's next?</h3>
-              
+
               <div className="flex items-start gap-3">
                 <div className="bg-blue-100 p-2 rounded-full mt-1">
                   <Phone className="w-4 h-4 text-blue-600" />
@@ -62,7 +74,7 @@ export default function OrderConfirmationPage() {
                   <p className="text-sm text-gray-600">Our delivery team will call you to confirm the order.</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <div className="bg-amber-100 p-2 rounded-full mt-1">
                   <MapPin className="w-4 h-4 text-amber-600" />
@@ -72,7 +84,7 @@ export default function OrderConfirmationPage() {
                   <p className="text-sm text-gray-600">You'll receive SMS updates about your order status.</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <div className="bg-purple-100 p-2 rounded-full mt-1">
                   <Home className="w-4 h-4 text-purple-600" />
@@ -92,16 +104,16 @@ export default function OrderConfirmationPage() {
               </p>
             </div>
           </CardContent>
-          
+
           <CardFooter className="flex flex-col gap-3">
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               onClick={() => navigate("/menu")}
             >
               Order More Food
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="w-full"
               onClick={() => navigate("/")}
             >

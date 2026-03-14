@@ -4,6 +4,18 @@ const cors = require("cors")
 const helmet = require("helmet")
 const rateLimit = require("express-rate-limit")
 require("dotenv").config()
+const admin = require("firebase-admin")
+const serviceAccount = require("./food-delivery-app-f3bd5-firebase-adminsdk-fbsvc-f0ed1f7823.json")
+
+// Initialize Firebase Admin
+try {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  })
+  console.log("✅ Firebase Admin initialized successfully")
+} catch (error) {
+  console.error("❌ Firebase Admin initialization error:", error)
+}
 
 // ✅ 1. FIRST create app
 const app = express()
@@ -27,11 +39,13 @@ console.log("✅ Environment variables loaded successfully")
 
 // Security middleware
 app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "*"],
     },
   },
 }))
@@ -115,7 +129,8 @@ app.use("/api/restaurants", apiLimiter, require("./routes/restaurants"))
 app.use("/api/menu", apiLimiter, require("./routes/menu"))
 app.use("/api/orders", apiLimiter, require("./routes/orders"))
 app.use("/api/cart", apiLimiter, require("./routes/cart"))
-app.use("/api/admin", authLimiter, require("./routes/admin"))
+app.use("/api/admin", apiLimiter, require("./routes/admin"))
+app.use("/api/rider", apiLimiter, require("./routes/rider"))
 app.use("/api/contact", apiLimiter, require("./routes/contact"))
 
 // ✅ Add seed routes AFTER app is defined
@@ -310,6 +325,8 @@ const shutdown = async () => {
 process.on("SIGTERM", shutdown)
 process.on("SIGINT", shutdown)
 
+const socketUtils = require("./utils/socket")
+
 const PORT = process.env.PORT || 5000
 const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`)
@@ -320,6 +337,9 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`🌱 Seed routes: http://localhost:${PORT}/api/seed`)
   console.log(`🔗 MongoDB: ${mongoose.connection.readyState === 1 ? "Connected" : "Disconnected"}`)
 })
+
+// Initialize Socket.io NOW
+socketUtils.initSocket(server)
 
 // Handle server errors
 server.on("error", (error) => {

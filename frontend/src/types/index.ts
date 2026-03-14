@@ -2,10 +2,11 @@ export interface User {
   _id: string
   name: string
   email: string
-  role: "customer" | "restaurant" | "admin"
+  role: "customer" | "restaurant" | "admin" | "superadmin" | "rider"
   phone?: string
   address?: string
   isActive?: boolean
+  riderStatus?: "available" | "busy" | "offline"
   createdAt: string
   updatedAt?: string
 }
@@ -33,33 +34,33 @@ export interface Restaurant {
 export interface MenuItem {
   _id: string
   restaurant: string | Restaurant
-  
+
   // Basic Info
   name: string
   description: string
   category: string
   price: number
   originalPrice?: number
-  
+
   // Media
   images: string[]  // ✅ Fixed: string[] instead of never[]
   image?: string     // For backward compatibility
-  
+
   // Availability & Status
   isAvailable: boolean
   isPopular: boolean
   isFeatured: boolean
   discountPercentage: number
-  
+
   // Dietary & Preparation
   dietaryTags: string[]  // ✅ Fixed: string[] instead of never[]
   spiceLevel?: "Mild" | "Medium" | "Hot" | "Extra Hot"
   preparationTime?: string
-  
+
   // Ingredients & Allergens
   ingredients?: string[]
   allergens?: string[]
-  
+
   // Nutritional Info
   nutritionalInfo?: {
     calories?: number
@@ -70,7 +71,7 @@ export interface MenuItem {
     sugar?: number
     sodium?: number
   }
-  
+
   // Customizations
   customizations?: Array<{
     name: string
@@ -81,14 +82,14 @@ export interface MenuItem {
     required?: boolean
     multiSelect?: boolean
   }>
-  
+
   // Ratings & Stats
   rating?: {
     average: number
     count: number
   }
   orderCount?: number
-  
+
   // Timestamps
   createdAt: string
   updatedAt: string
@@ -107,22 +108,52 @@ export interface CartItem {
 
 export interface Order {
   _id: string
-  user: string | User
+  orderNumber: string
+  customer: string | User
   restaurant: string | Restaurant
-  items: CartItem[]
-  totalAmount: number
-  deliveryAddress: string
-  deliveryFee?: number
-  tax?: number
-  discount?: number
-  status: "pending" | "confirmed" | "preparing" | "out_for_delivery" | "delivered" | "cancelled" | "rejected"
-  paymentStatus: "pending" | "paid" | "failed" | "refunded"
-  paymentMethod?: string
+  items: Array<{
+    menuItem: string | MenuItem
+    name: string
+    price: number
+    quantity: number
+    customizations: any[]
+    itemTotal: number
+    specialInstructions?: string
+  }>
+  pricing: {
+    subtotal: number
+    deliveryFee: number
+    serviceFee: number
+    tax: number
+    discount: number
+    total: number
+  }
+  deliveryAddress: {
+    street: string
+    city: string
+    state: string
+    zipCode: string
+    instructions?: string
+  }
+  contactInfo: {
+    phone: string
+    email: string
+    fullName?: string
+  }
+  paymentInfo: {
+    method: string
+    status: string
+    transactionId?: string
+    paidAt?: string
+  }
+  status: "pending" | "confirmed" | "preparing" | "ready" | "picked_up" | "out_for_delivery" | "delivered" | "cancelled" | "rejected" | "refunded"
+  orderType: "delivery" | "pickup" | "dine-in"
+  estimatedDeliveryTime: string
+  actualDeliveryTime?: string
   specialInstructions?: string
-  estimatedDeliveryTime?: string
-  deliveredAt?: string
+  rider?: string | User
   createdAt: string
-  updatedAt?: string
+  updatedAt: string
 }
 
 export interface ApiResponse<T> {

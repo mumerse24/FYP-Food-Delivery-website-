@@ -41,14 +41,20 @@ const auth = async (req, res, next) => {
 
     const { decoded, error } = verifyToken(token);
     if (error) {
-      return res.status(401).json({ 
-        success: false, 
-        message: error.name === "TokenExpiredError" ? "Token expired" : "Invalid token" 
+      return res.status(401).json({
+        success: false,
+        message: error.name === "TokenExpiredError" ? "Token expired" : "Invalid token"
       });
     }
 
-    // Only look in User collection for standard auth
-    const user = await User.findById(decoded.id).select("-password");
+    // Check User collection first
+    let user = await User.findById(decoded.id).select("-password");
+
+    // Fallback to Admin collection if not found (for admins using standard auth routes)
+    if (!user && Admin) {
+      user = await Admin.findById(decoded.id).select("-password");
+    }
+
     if (!user) {
       return res.status(401).json({ success: false, message: "User not found" });
     }
@@ -99,8 +105,8 @@ const adminAuth = async (req, res, next) => {
     // 4️⃣ Attach to Request
     // We attach to BOTH req.admin (for new routes) and req.user (for old dashboard routes)
     req.admin = account;
-    req.user = account; 
-    
+    req.user = account;
+
     next();
   } catch (error) {
     console.error("Admin Auth Error:", error);
@@ -118,7 +124,7 @@ const restaurantAuth = async (req, res, next) => {
     if (error) return res.status(401).json({ success: false, message: "Invalid token" });
 
     const user = await User.findById(decoded.id).select("-password");
-    
+
     if (!user || (user.role !== "restaurant" && user.role !== "admin")) {
       return res.status(403).json({ success: false, message: "Restaurant privileges required" });
     }

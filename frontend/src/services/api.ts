@@ -22,8 +22,22 @@ api.interceptors.request.use(
       }
     }
 
-    // Get token from localStorage (support both token and adminToken)
-    const token = localStorage.getItem("token") || localStorage.getItem("adminToken")
+    // Get token based on application context
+    let token = null;
+    if (typeof window !== 'undefined') {
+      if (window.location.pathname.startsWith('/admin')) {
+        token = localStorage.getItem("adminToken");
+      } else if (window.location.pathname.startsWith('/rider')) {
+        token = localStorage.getItem("riderToken");
+      } else {
+        token = localStorage.getItem("token");
+      }
+    }
+
+    // Fallback if specific token not found
+    if (!token) {
+      token = localStorage.getItem("adminToken") || localStorage.getItem("token") || localStorage.getItem("riderToken");
+    }
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
@@ -130,29 +144,48 @@ api.interceptors.response.use(
     if (response?.status === 401) {
       console.warn("🔒 Unauthorized access detected")
 
-      // Clear all authentication data
-      localStorage.removeItem("token")
-      localStorage.removeItem("user")
-      localStorage.removeItem("adminToken")
-      localStorage.removeItem("adminUser")
-
-      // Remove auth header from axios defaults
-      delete api.defaults.headers.common.Authorization
-
       // Show user-friendly message
       if (!originalRequest._retry) {
         originalRequest._retry = true
 
+        // Don't intercept 401 for login endpoints (let the login forms handle their own errors)
+        if (originalRequest.url?.includes('/auth/login')) {
+          return Promise.reject(error);
+        }
+
+        // Don't logout if FCM token registration fails (not critical)
+        if (originalRequest.url?.includes('/auth/fcm-token')) {
+          console.warn("FCM token registration failed, but proceeding without logout.");
+          return Promise.reject(error);
+        }
+
+        // Clear all authentication data
+        localStorage.removeItem("token")
+        localStorage.removeItem("user")
+        localStorage.removeItem("adminToken")
+        localStorage.removeItem("adminUser")
+
+        // Remove auth header from axios defaults
+        delete api.defaults.headers.common.Authorization
+
         const isAdminPage = window.location.pathname.includes('/admin')
+        const isRiderPage = window.location.pathname.includes('/rider')
+
         const message = isAdminPage
           ? "Admin session expired. Please login again."
-          : "Your session has expired. Please login again."
+          : isRiderPage
+            ? "Rider session expired. Please login again."
+            : "Your session has expired. Please login again."
 
         alert(message)
 
         // Redirect after a delay
         setTimeout(() => {
-          const redirectTo = isAdminPage ? '/admin/login' : '/login'
+          const redirectTo = isAdminPage
+            ? '/admin/login'
+            : isRiderPage
+              ? '/rider/login'
+              : '/'
           window.location.href = redirectTo
         }, 2000)
       }
@@ -163,6 +196,10 @@ api.interceptors.response.use(
       console.warn("🚫 Forbidden access detected")
 
       if (typeof window !== 'undefined') {
+        // Clear admin token since it's invalid for this action
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminUser");
+
         const message = "You don't have admin permission to perform this action."
         alert(message)
 
@@ -208,7 +245,6 @@ api.interceptors.response.use(
 // ✅ Helper function to set token manually
 export const setAuthToken = (token: string) => {
   localStorage.setItem("token", token)
-  localStorage.setItem("adminToken", token) // Set both for consistency
   api.defaults.headers.common.Authorization = `Bearer ${token}`
   console.log("🔧 Authentication token set")
 }
@@ -216,7 +252,6 @@ export const setAuthToken = (token: string) => {
 // ✅ Helper function to set admin token specifically
 export const setAdminToken = (token: string) => {
   localStorage.setItem("adminToken", token)
-  localStorage.setItem("token", token) // Set both for consistency
   api.defaults.headers.common.Authorization = `Bearer ${token}`
   console.log("🔧 Admin authentication token set")
 }
@@ -233,7 +268,14 @@ export const clearAuth = () => {
 
 // ✅ Helper to check if user is authenticated
 export const isAuthenticated = () => {
-  const token = localStorage.getItem("token") || localStorage.getItem("adminToken")
+  if (typeof window !== 'undefined') {
+    if (window.location.pathname.startsWith('/admin')) {
+      return !!localStorage.getItem("adminToken");
+    } else if (window.location.pathname.startsWith('/rider')) {
+      return !!localStorage.getItem("riderToken");
+    }
+  }
+  const token = localStorage.getItem("token") || localStorage.getItem("adminToken");
   return !!token
 }
 
@@ -245,7 +287,14 @@ export const isAdminAuthenticated = () => {
 
 // ✅ Helper to get current token
 export const getCurrentToken = () => {
-  return localStorage.getItem("token") || localStorage.getItem("adminToken")
+  if (typeof window !== 'undefined') {
+    if (window.location.pathname.startsWith('/admin')) {
+      return localStorage.getItem("adminToken");
+    } else if (window.location.pathname.startsWith('/rider')) {
+      return localStorage.getItem("riderToken");
+    }
+  }
+  return localStorage.getItem("token") || localStorage.getItem("adminToken");
 }
 
 // ✅ Helper to get admin token

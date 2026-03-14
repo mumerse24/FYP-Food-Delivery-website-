@@ -5,16 +5,23 @@ import { motion } from "framer-motion"
 import { useAppSelector, useAppDispatch } from "@/store/hooks"
 import type { MenuItem, Filters } from "@/types"
 import { addToCartServer } from "@/store/slices/cartSlice"
+import { deleteMenuItem } from "@/store/slices/menuSlice" // Import the action
+import { Edit, Trash2 } from "lucide-react"
 
 interface RestaurantMenuProps {
   filters: Filters
+  onEdit?: (item: MenuItem) => void // Add an optional prop to handle editing if needed
 }
 
-export default function RestaurantMenu({ filters }: RestaurantMenuProps) {
+export default function RestaurantMenu({ filters, onEdit }: RestaurantMenuProps) {
   const menuItems = useAppSelector((state) => state.menu.items)
   const cartState = useAppSelector((state) => state.cart)
+  const user = useAppSelector((state) => state.auth.user) // Get current user
   const dispatch = useAppDispatch()
-  const [loadingItemId, setLoadingItemId] = useState<string | null>(null) // ✅ TRACK WHICH ITEM IS LOADING
+  const [loadingItemId, setLoadingItemId] = useState<string | null>(null) // TRACK WHICH ITEM IS LOADING
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin'
+  console.log("RestaurantMenu user check:", user);
+
 
   // Filter items
   const filteredItems = menuItems.filter((item) => {
@@ -26,25 +33,35 @@ export default function RestaurantMenu({ filters }: RestaurantMenuProps) {
 
   // Fixed image URLs
   const getImageUrl = (item: MenuItem) => {
+    let imgPath = null;
+
     // Check if the array has a valid image
     if (item.images && item.images.length > 0) {
-      return item.images[0]
+      imgPath = item.images[0];
     }
-
     // Backward compatibility for scalar 'image'
-    if (item.image) {
-      return item.image
+    else if (item.image) {
+      imgPath = item.image;
     }
 
-    // Default images based on category
-    const defaultImages: Record<string, string> = {
-      "Burgers": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=600&fit=crop",
-      "Pizza": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&h=600&fit=crop",
-      "Sides": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=800&h=600&fit=crop",
-      "Beverages": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=800&h=600&fit=crop",
-      "Desserts": "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=800&h=600&fit=crop",
+    if (!imgPath) {
+      return "https://placehold.co/800x600/f3f4f6/a1a1aa?text=No+Image";
     }
-    return defaultImages[item.category] || "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&h=600&fit=crop"
+
+    // If it's already a full HTTP URL, return it
+    if (imgPath.startsWith("http")) {
+      return imgPath;
+    }
+
+    // Process relative paths
+    const backendUrl = import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:5000";
+    const formattedPath = imgPath.replace(/\\/g, "/"); // normalize slashes
+
+    if (formattedPath.startsWith("/")) {
+      return `${backendUrl}${formattedPath}`;
+    } else {
+      return `${backendUrl}/${formattedPath}`;
+    }
   }
 
   // Add to cart handler (optimized)
@@ -87,6 +104,18 @@ export default function RestaurantMenu({ filters }: RestaurantMenuProps) {
       setLoadingItemId(null); // ✅ RESET LOADING
     }
   };
+
+  // Delete item handler
+  const handleDelete = async (itemId: string, itemName: string) => {
+    if (window.confirm(`Are you sure you want to delete ${itemName}?`)) {
+      try {
+        await dispatch(deleteMenuItem(itemId)).unwrap()
+      } catch (error) {
+        console.error("Failed to delete item:", error)
+        alert("Failed to delete item. Please try again.")
+      }
+    }
+  }
 
   // If no items after filtering
   if (filteredItems.length === 0) {
@@ -142,7 +171,7 @@ export default function RestaurantMenu({ filters }: RestaurantMenuProps) {
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
         {filteredItems.map((item) => {
           const itemId = item._id || (item as any).id;
-          const isAdding = loadingItemId === itemId; // ✅ PER-ITEM LOADING STATE
+          const isAdding = loadingItemId === itemId; // PER-ITEM LOADING STATE
 
           return (
             <motion.div
@@ -151,7 +180,7 @@ export default function RestaurantMenu({ filters }: RestaurantMenuProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
               whileHover={{ y: -5 }}
-              className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-all duration-300"
+              className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-all duration-300 relative group"
             >
               {/* Image */}
               <div className="h-48 overflow-hidden relative bg-gray-100">
@@ -162,18 +191,33 @@ export default function RestaurantMenu({ filters }: RestaurantMenuProps) {
                   loading="lazy"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    if (!target.src.includes('unsplash.com')) {
-                      const defaultImages: Record<string, string> = {
-                        "Burgers": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=600&fit=crop",
-                        "Pizza": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&h=600&fit=crop",
-                        "Sides": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=800&h=600&fit=crop",
-                        "Beverages": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=800&h=600&fit=crop",
-                        "Desserts": "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=800&h=600&fit=crop",
-                      };
-                      target.src = defaultImages[item.category] || "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&h=600&fit=crop";
+                    const fallback = "https://placehold.co/800x600/f3f4f6/a1a1aa?text=No+Image";
+                    if (target.src !== fallback) {
+                      target.src = fallback;
                     }
                   }}
                 />
+
+                {/* Admin Quick Actions (Hover) */}
+                {isAdmin && (
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                    <button
+                      onClick={() => onEdit?.(item)}
+                      className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg transition-transform hover:scale-110"
+                      title="Edit Item"
+                    >
+                      <Edit className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => itemId && handleDelete(itemId, item.name)}
+                      className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-transform hover:scale-110"
+                      title="Delete Item"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+
                 {isAdding && (
                   <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
                     <div className="animate-spin rounded-full h-10 w-10 border-4 border-white border-t-transparent"></div>
@@ -184,8 +228,8 @@ export default function RestaurantMenu({ filters }: RestaurantMenuProps) {
               {/* Content */}
               <div className="p-6">
                 <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-bold text-lg text-gray-900 truncate">{item.name}</h3>
-                  <span className="text-xs font-medium bg-amber-100 text-amber-800 px-2 py-1 rounded whitespace-nowrap">
+                  <h3 className="font-bold text-lg text-gray-900 truncate pr-2">{item.name}</h3>
+                  <span className="text-xs font-medium bg-amber-100 text-amber-800 px-2 py-1 rounded whitespace-nowrap shrink-0">
                     {item.category}
                   </span>
                 </div>

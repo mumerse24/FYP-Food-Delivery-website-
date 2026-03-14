@@ -131,6 +131,34 @@ export const adminService = {
     return response.data
   },
 
+  // ============ 🛵 RIDER MANAGEMENT ============
+  getRiders: async (
+    params: {
+      page?: number
+      limit?: number
+      search?: string
+    } = {},
+  ) => {
+    const response = await api.get<ApiResponse<{ data: User[]; pagination: Pagination }>>(
+      "/admin/riders",
+      { params }
+    )
+    return response.data
+  },
+
+  getAvailableRiders: async () => {
+    const response = await api.get<ApiResponse<{ data: User[] }>>("/admin/riders/available")
+    return response.data
+  },
+
+  assignRiderToOrder: async (orderId: string, riderId: string) => {
+    const response = await api.put<ApiResponse<Order>>(
+      `/admin/orders/${orderId}/assign`,
+      { riderId }
+    )
+    return response.data
+  },
+
   // ============ 📦 MENU MANAGEMENT (CRUD) ============
 
   // ✅ GET /api/menu/restaurant/:restaurantId
@@ -251,6 +279,11 @@ export const adminService = {
 
   getSystemHealth: async () => {
     const response = await api.get("/admin/system/health")
+    return response.data
+  },
+
+  getFeedbackStats: async () => {
+    const response = await api.get("/admin/feedback/stats")
     return response.data
   },
 }

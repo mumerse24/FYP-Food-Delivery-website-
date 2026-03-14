@@ -5,6 +5,7 @@ import menuSlice from "./slices/menuSlice"
 import cartSlice from "./slices/cartSlice"
 import orderSlice from "./slices/orderSlice"
 import adminSlice from "./slices/adminSlice"
+import riderSlice from "./slices/riderSlice"
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ export const store = configureStore({
     cart: cartSlice,
     orders: orderSlice,
     admin: adminSlice,
+    rider: riderSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

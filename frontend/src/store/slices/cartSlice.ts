@@ -25,11 +25,15 @@ const getSanitizedInitialItems = (): CartItem[] => {
   }
 }
 
+const getStoredRestaurantId = (): string | null => {
+  return localStorage.getItem("cartRestaurantId")
+}
+
 const initialState: CartState = {
   items: getSanitizedInitialItems(),
   totalAmount: 0,
   totalItems: 0,
-  restaurantId: null,
+  restaurantId: getStoredRestaurantId(),
   isLoading: false,
   error: null,
   deliveryAddress: "",
@@ -232,6 +236,7 @@ const cartSlice = createSlice({
       state.totalItems = 0
       state.restaurantId = null
       localStorage.removeItem("cart")
+      localStorage.removeItem("cartRestaurantId")
     },
 
     setDeliveryAddress: (state, action: PayloadAction<string>) => {

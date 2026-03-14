@@ -37,6 +37,21 @@ interface PendingRestaurantsResponse {
   pagination?: any
 }
 
+// Matches: res.json({ success: true, data: { stats: ..., recentFeedback: ... } })
+interface FeedbackResponse {
+  success: boolean
+  data: {
+    stats: {
+      avgFoodRating: number
+      avgDeliveryRating: number
+      avgOverallRating: number
+      totalRatings: number
+      ratingDistribution: number[]
+    }
+    recentFeedback: any[]
+  }
+}
+
 // Matches: res.json({ success: true, data: { overview: ... } })
 interface AdminStatsResponse {
   success: boolean
@@ -81,6 +96,8 @@ interface AdminState {
   pendingRestaurants: Restaurant[]
   orders: Order[]
   users: User[]
+  riders: User[] // ✅ NEW: All riders
+  availableRiders: User[] // ✅ NEW: Available riders for assignment
   restaurants: Restaurant[] // ✅ NEW: All restaurants
   selectedRestaurantId: string | null // ✅ NEW: Currently selected restaurant
   menuItems: MenuItem[] // ✅ NEW: Menu items array
@@ -98,6 +115,7 @@ interface AdminState {
     total: number
     limit: number
   }
+  feedback: FeedbackResponse['data'] | null // ✅ NEW: Feedback stats
 }
 
 const initialState: AdminState = {
@@ -105,6 +123,8 @@ const initialState: AdminState = {
   pendingRestaurants: [],
   orders: [],
   users: [],
+  riders: [], // ✅ NEW
+  availableRiders: [], // ✅ NEW
   restaurants: [], // ✅ NEW
   selectedRestaurantId: null, // ✅ NEW
   menuItems: [], // ✅ NEW
@@ -122,6 +142,7 @@ const initialState: AdminState = {
     total: 0,
     limit: 20,
   },
+  feedback: null, // ✅ NEW
 }
 
 // ==============================
@@ -136,6 +157,20 @@ export const fetchAdminStats = createAsyncThunk<AdminStatsResponse, void>(
       return response as unknown as AdminStatsResponse
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Failed to fetch admin stats")
+    }
+  }
+)
+
+
+
+export const fetchFeedbackStats = createAsyncThunk<FeedbackResponse, void>(
+  "admin/fetchFeedbackStats",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await adminService.getFeedbackStats()
+      return response as unknown as FeedbackResponse
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch feedback stats")
     }
   }
 )
@@ -232,6 +267,48 @@ export const updateOrderStatus = createAsyncThunk(
       return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || "Failed to update order status")
+    }
+  }
+)
+
+// ==============================
+// 🛵 Rider Thunks
+// ==============================
+
+export const fetchRiders = createAsyncThunk<UsersResponse, { page?: number; limit?: number; search?: string } | undefined>(
+  "admin/fetchRiders",
+  async (params = {}, { rejectWithValue }) => {
+    try {
+      const response = await adminService.getRiders(params)
+      return response as unknown as UsersResponse
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch riders")
+    }
+  }
+)
+
+export const fetchAvailableRiders = createAsyncThunk<{ success: boolean; data: User[] }, void>(
+  "admin/fetchAvailableRiders",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await adminService.getAvailableRiders()
+      return response as unknown as { success: boolean; data: User[] }
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch available riders")
+    }
+  }
+)
+
+export const assignRiderToOrder = createAsyncThunk<Order, { orderId: string; riderId: string }>(
+  "admin/assignRiderToOrder",
+  async ({ orderId, riderId }, { rejectWithValue, dispatch }) => {
+    try {
+      const response = await adminService.assignRiderToOrder(orderId, riderId)
+      dispatch(fetchAvailableRiders())
+      dispatch(fetchAllOrders({ limit: 20, page: 1 }))
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Failed to assign rider")
     }
   }
 )
@@ -437,6 +514,28 @@ const adminSlice = createSlice({
     setSelectedRestaurantId: (state, action) => {
       state.selectedRestaurantId = action.payload
     },
+    setOrderStatus: (state, action) => {
+      const updatedOrder = action.payload
+      const index = state.orders.findIndex(o => o._id === updatedOrder._id)
+      if (index !== -1) {
+        state.orders[index] = updatedOrder
+      }
+    },
+    setRiderStatus: (state, action) => {
+      const { riderId, status } = action.payload
+      const index = state.riders.findIndex(r => r._id === riderId)
+      if (index !== -1) {
+        state.riders[index].riderStatus = status
+      }
+      // Also update availableRiders list
+      const availIndex = state.availableRiders.findIndex(r => r._id === riderId)
+      if (status === "available" && availIndex === -1) {
+        const rider = state.riders.find(r => r._id === riderId)
+        if (rider) state.availableRiders.push(rider)
+      } else if (status !== "available" && availIndex !== -1) {
+        state.availableRiders.splice(availIndex, 1)
+      }
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -476,6 +575,10 @@ const adminSlice = createSlice({
       })
 
       // 🟢 Users
+      .addCase(fetchUsers.pending, () => {
+        // Optional debugging console log 
+        // console.log("fetching users");
+      })
       .addCase(fetchUsers.fulfilled, (state, action) => {
         state.isLoading = false
         const payload = action.payload as any
@@ -520,6 +623,43 @@ const adminSlice = createSlice({
         }
       })
 
+      // ============ 🛵 RIDER HANDLERS ============
+
+      // 🟢 Fetch Riders
+      .addCase(fetchRiders.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(fetchRiders.fulfilled, (state, action) => {
+        state.isLoading = false
+        const payload = action.payload as any
+        state.riders = payload.data || payload || []
+        if (payload.pagination) {
+          state.pagination = payload.pagination
+        }
+      })
+      .addCase(fetchRiders.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
+
+      // 🟢 Fetch Available Riders
+      .addCase(fetchAvailableRiders.fulfilled, (state, action) => {
+        const payload = action.payload as any
+        state.availableRiders = payload.data || payload || []
+      })
+
+      // 🟢 Assign Rider to Order
+      .addCase(assignRiderToOrder.fulfilled, (state, action) => {
+        const payload = action.payload as any
+        const updatedOrder = payload.data || payload
+
+        const index = state.orders.findIndex(o => o._id === updatedOrder._id)
+        if (index !== -1) {
+          state.orders[index] = updatedOrder
+        }
+      })
+
       // ============ ✅ MENU CRUD HANDLERS ============
 
       // 🟢 Fetch Menu Items
@@ -545,6 +685,12 @@ const adminSlice = createSlice({
         const payload = action.payload as any
         const newItem = payload.data || payload
         state.menuItems = [newItem, ...state.menuItems]
+      })
+
+      // 🟢 Feedback Stats
+      .addCase(fetchFeedbackStats.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.feedback = action.payload.data
       })
 
       // 🟢 Update Menu Item
@@ -620,7 +766,7 @@ const adminSlice = createSlice({
       })
 
       // 🟢 Fetch Categories
-      .addCase(fetchCategories.fulfilled, (state, action) => {
+      .addCase(fetchCategories.fulfilled, () => {
         // Categories don't need to be stored in state, but we can if needed
       })
 
@@ -639,5 +785,5 @@ const adminSlice = createSlice({
   },
 })
 
-export const { clearError, clearAdminData, clearCurrentMenuItem, setSelectedRestaurantId } = adminSlice.actions
+export const { clearError, clearAdminData, clearCurrentMenuItem, setSelectedRestaurantId, setOrderStatus, setRiderStatus } = adminSlice.actions
 export default adminSlice.reducer

@@ -4,6 +4,7 @@ const mongoose = require("mongoose")
 const MenuItem = require("../models/MenuItem")
 const Restaurant = require("../models/Restaurant")
 const { auth, restaurantAuth, adminAuth } = require("../middleware/auth")
+const { getIO } = require("../utils/socket")
 
 const router = express.Router()
 
@@ -16,6 +17,43 @@ const validateObjectId = (id, field = "ID") => {
 }
 
 // ============ PUBLIC ROUTES ============
+
+// @route   GET /api/menu
+// @desc    Get all available menu items (no restaurantId needed)
+// @access  Public
+router.get("/", async (req, res) => {
+  try {
+    const { category, search } = req.query
+
+    // Build query
+    const queryFilter = { isAvailable: true }
+
+    if (category) {
+      queryFilter.category = category
+    }
+
+    if (search) {
+      queryFilter.$text = { $search: search }
+    }
+
+    const menuItems = await MenuItem.find(queryFilter)
+      .populate("restaurant", "name")
+      .sort({ category: 1, name: 1 })
+      .lean()
+
+    res.json({
+      success: true,
+      data: menuItems,
+      total: menuItems.length,
+    })
+  } catch (error) {
+    console.error("Get all menu items error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
 
 // @route   GET /api/menu/restaurant/:restaurantId
 // @desc    Get menu items for a specific restaurant
@@ -101,7 +139,7 @@ router.get(
   async (req, res) => {
     try {
       const { id } = req.params
-      
+
       const menuItem = await MenuItem.findById(id)
         .populate("restaurant", "name")
         .lean()
@@ -171,13 +209,20 @@ router.post(
         ...req.body,
         restaurant: new mongoose.Types.ObjectId(restaurant) // Ensure ObjectId
       })
-      
+
       await menuItem.save()
 
       // Get populated item
       const populatedItem = await MenuItem.findById(menuItem._id)
         .populate("restaurant", "name")
         .lean()
+
+      // Broadcast the new item via WebSockets
+      try {
+        getIO().emit("menuItemAdded", populatedItem)
+      } catch (err) {
+        console.error("Socket emit error on add:", err.message)
+      }
 
       res.status(201).json({
         success: true,
@@ -233,6 +278,13 @@ router.put(
         .populate("restaurant", "name")
         .lean()
 
+      // Broadcast the update via WebSockets
+      try {
+        getIO().emit("menuItemUpdated", updatedItem)
+      } catch (err) {
+        console.error("Socket emit error on update:", err.message)
+      }
+
       res.json({
         success: true,
         message: "Menu item updated successfully",
@@ -277,6 +329,13 @@ router.delete(
 
       // ✅ Delete item
       await MenuItem.findByIdAndDelete(id)
+
+      // Broadcast the deletion via WebSockets
+      try {
+        getIO().emit("menuItemDeleted", id)
+      } catch (err) {
+        console.error("Socket emit error on delete:", err.message)
+      }
 
       res.json({
         success: true,
@@ -323,6 +382,16 @@ router.patch(
           success: false,
           message: "Menu item not found",
         })
+      }
+
+      // Broadcast the availability update via WebSockets
+      // Need it fully populated so frontend has restaurant details if required
+      const populatedItem = await MenuItem.findById(id).populate("restaurant", "name").lean()
+
+      try {
+        getIO().emit("menuItemUpdated", populatedItem)
+      } catch (err) {
+        console.error("Socket emit error on toggle availability:", err.message)
       }
 
       res.json({
@@ -398,4 +467,29 @@ router.get("/categories/list", async (req, res) => {
   }
 })
 
-module.exports = router
+// @route   GET /api/menu/popular/all
+// @desc    Get top popular dishes across the platform
+// @access  Public
+router.get("/popular/all", async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 8;
+    const popularItems = await MenuItem.find({ isAvailable: true })
+      .sort({ "rating.average": -1, orderCount: -1 }) // Sort by rating and order count
+      .limit(limit)
+      .populate("restaurant", "name")
+      .lean();
+
+    res.json({
+      success: true,
+      data: popularItems,
+    });
+  } catch (error) {
+    console.error("Get popular items error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+module.exports = router;
