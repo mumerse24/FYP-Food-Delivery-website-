@@ -29,8 +29,13 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["customer", "restaurant", "admin"],
+      enum: ["customer", "restaurant", "admin", "rider"],
       default: "customer",
+    },
+    riderStatus: {
+      type: String,
+      enum: ["available", "busy", "offline"],
+      default: "offline",
     },
     address: {
       street: String,
@@ -65,6 +70,14 @@ const userSchema = new mongoose.Schema(
         sms: { type: Boolean, default: false },
         push: { type: Boolean, default: true },
       },
+    },
+    fcmTokens: {
+      type: [String],
+      default: [],
+    },
+    loyaltyPoints: {
+      type: Number,
+      default: 0,
     },
   },
   {

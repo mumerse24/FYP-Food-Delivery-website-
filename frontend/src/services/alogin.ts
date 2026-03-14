@@ -76,15 +76,15 @@ const AuthAdmin = {
 
       if (response.data.success && response.data.token) {
         // Store token and admin data
-        localStorage.setItem('adminToken', response.data.token);
-        localStorage.setItem('adminData', JSON.stringify(response.data.admin));
+        localStorage.setItem('token', response.data.token);  // ✅
+        localStorage.setItem('user', JSON.stringify(response.data.admin));  // ✅
       }
 
       return response.data;
     } catch (error: any) {
       throw new Error(
-        error.response?.data?.message || 
-        error.message || 
+        error.response?.data?.message ||
+        error.message ||
         'Login failed. Please try again.'
       );
     }
@@ -92,8 +92,8 @@ const AuthAdmin = {
 
   // Register new admin (for initial setup)
   async register(
-    email: string, 
-    password: string, 
+    email: string,
+    password: string,
     name: string
   ): Promise<LoginResponse> {
     try {
@@ -111,7 +111,7 @@ const AuthAdmin = {
       return response.data;
     } catch (error: any) {
       throw new Error(
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         'Registration failed. Please try again.'
       );
     }
@@ -158,7 +158,7 @@ const AuthAdmin = {
       throw new Error('Failed to fetch profile');
     } catch (error: any) {
       throw new Error(
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         'Failed to fetch admin profile'
       );
     }
@@ -177,7 +177,7 @@ const AuthAdmin = {
       return response.data;
     } catch (error: any) {
       throw new Error(
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         'Failed to update password'
       );
     }
@@ -196,7 +196,7 @@ const AuthAdmin = {
       return response.data;
     } catch (error: any) {
       throw new Error(
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         'Failed to update profile'
       );
     }
@@ -234,7 +234,7 @@ const AuthAdmin = {
       return response.data;
     } catch (error: any) {
       throw new Error(
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         'Failed to process forgot password request'
       );
     }
@@ -253,7 +253,7 @@ const AuthAdmin = {
       return response.data;
     } catch (error: any) {
       throw new Error(
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         'Failed to reset password'
       );
     }
@@ -269,7 +269,7 @@ const AuthAdmin = {
       throw new Error('Failed to fetch admins');
     } catch (error: any) {
       throw new Error(
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         'Failed to fetch admin list'
       );
     }
@@ -292,7 +292,7 @@ const AuthAdmin = {
       return response.data;
     } catch (error: any) {
       throw new Error(
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         'Failed to create admin'
       );
     }
@@ -310,7 +310,7 @@ const AuthAdmin = {
       return response.data;
     } catch (error: any) {
       throw new Error(
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         'Failed to update admin status'
       );
     }
@@ -323,7 +323,7 @@ const AuthAdmin = {
       return response.data;
     } catch (error: any) {
       throw new Error(
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         'Failed to delete admin'
       );
     }
@@ -339,7 +339,7 @@ const AuthAdmin = {
       throw new Error('Failed to fetch dashboard statistics');
     } catch (error: any) {
       throw new Error(
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         'Failed to fetch dashboard data'
       );
     }
@@ -355,7 +355,7 @@ const AuthAdmin = {
       throw new Error('Failed to fetch activities');
     } catch (error: any) {
       throw new Error(
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         'Failed to fetch activities'
       );
     }

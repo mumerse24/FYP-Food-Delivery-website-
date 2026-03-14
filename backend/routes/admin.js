@@ -7,6 +7,7 @@ const MenuItem = require("../models/MenuItem")
 const { adminAuth } = require("../middleware/auth")
 
 const router = express.Router()
+
 // @route   POST /api/admin/login
 // @desc    Admin login
 // @access  Public
@@ -757,5 +758,383 @@ router.get("/system/health", adminAuth, async (req, res) => {
     })
   }
 })
+
+// ==========================================
+// 📦 NEW: ORDER MANAGEMENT (Accept/Reject)
+// ==========================================
+
+// @route   PUT /api/admin/orders/:id/status
+// @desc    Update order status (e.g., confirm, reject, preparing)
+// @access  Private (Admin only)
+router.put(
+  "/orders/:id/status",
+  adminAuth,
+  [
+    body("status").isIn(["confirmed", "preparing", "ready", "out_for_delivery", "delivered", "cancelled", "rejected"]).withMessage("Invalid status"),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: errors.array(),
+        })
+      }
+
+      const { status } = req.body;
+      const order = await Order.findByIdAndUpdate(
+        req.params.id,
+        { status },
+        { new: true }
+      );
+
+      if (!order) {
+        return res.status(404).json({ success: false, message: "Order not found" });
+      }
+
+      // 🏆 Award Loyalty Points if delivered
+      if (status === "delivered") {
+        try {
+          const pointsToEarn = Math.floor((order.pricing?.total || 0) / 100);
+          if (pointsToEarn > 0) {
+            await User.findByIdAndUpdate(order.customer, {
+              $inc: { loyaltyPoints: pointsToEarn }
+            });
+            console.log(`🏆 Awarded ${pointsToEarn} loyalty points to customer ${order.customer}`);
+          }
+        } catch (loyaltyErr) {
+          console.error("Loyalty Points Award Error:", loyaltyErr.message);
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Order marked as ${status}`,
+        data: order
+      })
+    } catch (error) {
+      console.error("Update order status error:", error);
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+);
+
+// ==========================================
+// 🛵 NEW: RIDER MANAGEMENT
+// ==========================================
+
+// @route   GET /api/admin/riders
+// @desc    Get all delivery staff (riders)
+// @access  Private (Admin only)
+router.get("/riders", adminAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, search = "" } = req.query;
+
+    const query = { role: "rider" };
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const riders = await User.find(query)
+      .select("-password")
+      .limit(Number.parseInt(limit))
+      .skip((Number.parseInt(page) - 1) * Number.parseInt(limit))
+      .sort({ createdAt: -1 });
+
+    const total = await User.countDocuments(query);
+
+    res.json({
+      success: true,
+      data: riders,
+      pagination: {
+        current: Number.parseInt(page),
+        pages: Math.ceil(total / Number.parseInt(limit)),
+        total,
+        limit: Number.parseInt(limit),
+      },
+    });
+  } catch (error) {
+    console.error("Get riders error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// @route   GET /api/admin/riders/available
+// @desc    Get all available riders
+// @access  Private (Admin only)
+router.get("/riders/available", adminAuth, async (req, res) => {
+  try {
+    const riders = await User.find({ role: "rider", riderStatus: "available", isActive: true })
+      .select("name phone riderStatus");
+
+    res.json({
+      success: true,
+      data: riders
+    });
+  } catch (error) {
+    console.error("Get available riders error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// @route   PUT /api/admin/orders/:id/assign
+// @desc    Assign a rider to an order
+// @access  Private (Admin only)
+router.put(
+  "/orders/:id/assign",
+  adminAuth,
+  [
+    body("riderId").notEmpty().withMessage("Rider ID is required"),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+
+      const { riderId } = req.body;
+
+      // 1. Find rider and verify availability
+      const rider = await User.findOne({ _id: riderId, role: "rider" });
+      if (!rider) return res.status(404).json({ success: false, message: "Rider not found" });
+
+      // 2. Update Order
+      const order = await Order.findById(req.params.id);
+      if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+
+      order.assignedDriver = riderId;
+      order.assignedAt = new Date();
+      order.status = "out_for_delivery";
+
+      // Add to timeline
+      order.timeline.push({
+        status: "out_for_delivery",
+        timestamp: new Date(),
+        note: `Assigned to rider: ${rider.name}`
+      });
+
+      await order.save();
+
+      // 3. Update Rider Status
+      rider.riderStatus = "busy";
+      await rider.save();
+
+      // 4. Emit socket event for the rider
+      try {
+        const { getIO } = require("../utils/socket");
+        const populatedOrder = await Order.findById(order._id)
+          .populate("customer", "name phone email")
+          .populate("restaurant", "name phone")
+          .populate("assignedDriver", "name phone")
+          .lean();
+
+        getIO().emit("orderAssignedToRider", {
+          riderId: rider._id,
+          order: populatedOrder
+        });
+
+        // Also notify admin dashboard of status change
+        getIO().emit("orderStatusUpdated", populatedOrder);
+        getIO().emit("riderStatusUpdated", {
+          riderId: rider._id,
+          status: "busy"
+        });
+      } catch (err) {
+        console.error("Socket emit error on assignment:", err.message);
+      }
+
+      res.json({
+        success: true,
+        message: "Rider assigned successfully",
+        data: order
+      });
+    } catch (error) {
+      console.error("Assign rider error:", error);
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+);
+
+// @route   POST /api/admin/riders
+// @desc    Create a new rider account
+// @access  Private (Admin only)
+router.post(
+  "/riders",
+  adminAuth,
+  [
+    body("name").notEmpty().withMessage("Name is required"),
+    body("email").isEmail().withMessage("Valid email is required"),
+    body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 characters"),
+    body("phone").notEmpty().withMessage("Phone is required"),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+
+      const { name, email, password, phone } = req.body;
+
+      const existing = await User.findOne({ email });
+      if (existing) return res.status(400).json({ success: false, message: "Email already in use" });
+
+      const rider = new User({
+        name,
+        email,
+        password, // The User model has a pre-save hook that will hash this
+        phone,
+        role: "rider",
+        riderStatus: "available",
+        isActive: true,
+      });
+
+      await rider.save();
+
+      const riderObj = rider.toObject();
+      delete riderObj.password;
+
+      res.status(201).json({
+        success: true,
+        message: "Rider created successfully",
+        data: riderObj,
+      });
+    } catch (error) {
+      console.error("Create rider error:", error);
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+);
+
+// ==========================================
+// 🍔 NEW: MENU MANAGEMENT (Add/Update/Delete)
+// ==========================================
+
+// @route   POST /api/admin/menu
+// @desc    Add a new menu item
+// @access  Private (Admin only)
+router.post(
+  "/menu",
+  adminAuth,
+  [
+    body("name").notEmpty().withMessage("Name is required"),
+    body("price").isNumeric().withMessage("Price must be a number"),
+    body("category").notEmpty().withMessage("Category is required"),
+    body("restaurant").notEmpty().withMessage("Restaurant ID is required"),
+    body("description").optional(),
+    body("image").optional(), // URL string
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+
+      const newItem = new MenuItem({
+        ...req.body,
+        isAvailable: true
+      });
+
+      await newItem.save();
+
+      res.status(201).json({
+        success: true,
+        message: "Menu item added successfully",
+        data: newItem
+      });
+    } catch (error) {
+      console.error("Add menu item error:", error);
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+);
+
+// @route   PUT /api/admin/menu/:id
+// @desc    Update a menu item
+// @access  Private (Admin only)
+router.put("/menu/:id", adminAuth, async (req, res) => {
+  try {
+    const updatedItem = await MenuItem.findByIdAndUpdate(
+      req.params.id,
+      { $set: req.body },
+      { new: true }
+    );
+
+    if (!updatedItem) return res.status(404).json({ success: false, message: "Item not found" });
+
+    res.json({
+      success: true,
+      message: "Menu item updated",
+      data: updatedItem
+    });
+  } catch (error) {
+    console.error("Update menu error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// @route   DELETE /api/admin/menu/:id
+// @desc    Delete a menu item
+// @access  Private (Admin only)
+router.delete("/menu/:id", adminAuth, async (req, res) => {
+  try {
+    const deletedItem = await MenuItem.findByIdAndDelete(req.params.id);
+    if (!deletedItem) return res.status(404).json({ success: false, message: "Item not found" });
+
+    res.json({ success: true, message: "Menu item deleted" });
+  } catch (error) {
+    console.error("Delete menu error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// @route   GET /api/admin/feedback/stats
+// @desc    Get customer feedback and rating statistics
+// @access  Private (Admin only)
+router.get("/feedback/stats", adminAuth, async (req, res) => {
+  try {
+    const stats = await Order.aggregate([
+      { $match: { "rating.ratedAt": { $exists: true } } },
+      {
+        $group: {
+          _id: null,
+          avgFoodRating: { $avg: "$rating.food" },
+          avgDeliveryRating: { $avg: "$rating.delivery" },
+          avgOverallRating: { $avg: "$rating.overall" },
+          totalRatings: { $sum: 1 },
+          ratingDistribution: {
+            $push: "$rating.overall"
+          }
+        }
+      }
+    ]);
+
+    const recentFeedback = await Order.find({ "rating.ratedAt": { $exists: true } })
+      .populate("customer", "name")
+      .populate("restaurant", "name")
+      .sort({ "rating.ratedAt": -1 })
+      .limit(10)
+      .select("orderNumber customer restaurant rating");
+
+    res.json({
+      success: true,
+      data: {
+        stats: stats[0] || {
+          avgFoodRating: 0,
+          avgDeliveryRating: 0,
+          avgOverallRating: 0,
+          totalRatings: 0,
+          ratingDistribution: []
+        },
+        recentFeedback
+      }
+    });
+  } catch (error) {
+    console.error("Get feedback stats error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
 module.exports = router

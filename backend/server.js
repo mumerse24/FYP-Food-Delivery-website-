@@ -4,6 +4,18 @@ const cors = require("cors")
 const helmet = require("helmet")
 const rateLimit = require("express-rate-limit")
 require("dotenv").config()
+const admin = require("firebase-admin")
+const serviceAccount = require("./food-delivery-app-f3bd5-firebase-adminsdk-fbsvc-f0ed1f7823.json")
+
+// Initialize Firebase Admin
+try {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  })
+  console.log("✅ Firebase Admin initialized successfully")
+} catch (error) {
+  console.error("❌ Firebase Admin initialization error:", error)
+}
 
 // ✅ 1. FIRST create app
 const app = express()
@@ -27,11 +39,13 @@ console.log("✅ Environment variables loaded successfully")
 
 // Security middleware
 app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "*"],
     },
   },
 }))
@@ -52,7 +66,7 @@ const apiLimiter = rateLimit({
 })
 
 // CORS configuration from .env
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
   : ["http://localhost:3000", "http://localhost:5173", "http://localhost:8080"]
 
@@ -60,7 +74,7 @@ const corsOptions = {
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true)
-    
+
     if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes("*")) {
       callback(null, true)
     } else {
@@ -82,9 +96,9 @@ app.options("*", cors(corsOptions))
 
 // Body parsing middleware
 app.use(express.json({ limit: process.env.MAX_JSON_SIZE || "10mb" }))
-app.use(express.urlencoded({ 
-  extended: true, 
-  limit: process.env.MAX_URLENCODED_SIZE || "10mb" 
+app.use(express.urlencoded({
+  extended: true,
+  limit: process.env.MAX_URLENCODED_SIZE || "10mb"
 }))
 
 const { globalErrorHandler } = require("./middleware/errorHandler")
@@ -115,7 +129,8 @@ app.use("/api/restaurants", apiLimiter, require("./routes/restaurants"))
 app.use("/api/menu", apiLimiter, require("./routes/menu"))
 app.use("/api/orders", apiLimiter, require("./routes/orders"))
 app.use("/api/cart", apiLimiter, require("./routes/cart"))
-app.use("/api/admin", authLimiter, require("./routes/admin"))
+app.use("/api/admin", apiLimiter, require("./routes/admin"))
+app.use("/api/rider", apiLimiter, require("./routes/rider"))
 app.use("/api/contact", apiLimiter, require("./routes/contact"))
 
 // ✅ Add seed routes AFTER app is defined
@@ -124,8 +139,10 @@ app.use("/api/seed", apiLimiter, require("./routes/seedroutes"))
 // Add admin authentication routes
 const adminAuthRoutes = require("./routes/admin/auth")
 app.use("/api/admin/auth", authLimiter, adminAuthRoutes)
+app.use("/api/upload", apiLimiter, require("./routes/upload"))
+
 // server.js mein (app.use(cors()) ke baad):
-app.use(express.static("public")) // ← Add this line
+app.use(express.static("public")) // ← This line stays here
 
 // Phir aapke images available honge:
 // http://localhost:5000/images/menu/Chicken%20Burger.jpg
@@ -143,7 +160,7 @@ app.get("/api/health", (req, res) => {
     node: process.version,
     platform: process.platform,
   }
-  
+
   res.status(200).json(healthStatus)
 })
 
@@ -152,30 +169,30 @@ app.post("/api/admin/init", async (req, res) => {
   try {
     const Admin = require("./models/Admin")
     const bcrypt = require("bcryptjs")
-    
+
     // Check if any admin exists
     const adminCount = await Admin.countDocuments()
-    
+
     if (adminCount > 0) {
       return res.status(400).json({
         success: false,
         message: "Admin already exists. Use login instead."
       })
     }
-    
+
     const { email, password, name } = req.body
-    
+
     if (!email || !password || !name) {
       return res.status(400).json({
         success: false,
         message: "Email, password, and name are required"
       })
     }
-    
+
     // Hash password
     const salt = await bcrypt.genSalt(10)
     const hashedPassword = await bcrypt.hash(password, salt)
-    
+
     // Create admin
     const admin = new Admin({
       email: email.toLowerCase(),
@@ -184,11 +201,11 @@ app.post("/api/admin/init", async (req, res) => {
       role: "superadmin",
       isActive: true
     })
-    
+
     await admin.save()
-    
+
     console.log(`✅ Initial admin created: ${email}`)
-    
+
     res.status(201).json({
       success: true,
       message: "Initial admin created successfully",
@@ -198,7 +215,7 @@ app.post("/api/admin/init", async (req, res) => {
         role: admin.role
       }
     })
-    
+
   } catch (error) {
     console.error("Admin initialization error:", error)
     res.status(500).json({
@@ -256,11 +273,9 @@ mongoose.connection.on("error", (err) => {
   console.error("❌ MongoDB error:", err.message)
 })
 
-// Global error handler
-app.use(globalErrorHandler)
-
-// 404 handler for API endpoints
+// 404 handler for API endpoints (MUST be after all routes)
 app.use("/api/*", (req, res) => {
+  console.log(`🔍 404: ${req.method} ${req.originalUrl} - No route matched`)
   res.status(404).json({
     success: false,
     message: "API endpoint not found",
@@ -270,11 +285,13 @@ app.use("/api/*", (req, res) => {
   })
 })
 
+// Global error handler
+app.use(globalErrorHandler)
 // Serve static files in production
 if (process.env.NODE_ENV === "production") {
   const path = require("path")
   app.use(express.static(path.join(__dirname, "../frontend/dist")))
-  
+
   app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "../frontend/dist/index.html"))
   })
@@ -283,11 +300,11 @@ if (process.env.NODE_ENV === "production") {
 // Graceful shutdown
 const shutdown = async () => {
   console.log("🛑 Shutdown signal received")
-  
+
   // Close server first
   server.close(async () => {
     console.log("✅ HTTP server closed")
-    
+
     try {
       // Close MongoDB connection
       await mongoose.connection.close(false)
@@ -308,6 +325,8 @@ const shutdown = async () => {
 process.on("SIGTERM", shutdown)
 process.on("SIGINT", shutdown)
 
+const socketUtils = require("./utils/socket")
+
 const PORT = process.env.PORT || 5000
 const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`)
@@ -318,6 +337,9 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`🌱 Seed routes: http://localhost:${PORT}/api/seed`)
   console.log(`🔗 MongoDB: ${mongoose.connection.readyState === 1 ? "Connected" : "Disconnected"}`)
 })
+
+// Initialize Socket.io NOW
+socketUtils.initSocket(server)
 
 // Handle server errors
 server.on("error", (error) => {

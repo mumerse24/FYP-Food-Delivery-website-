@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Search, Menu as MenuIcon, LogIn, UserPlus, LogOut, User, UtensilsCrossed } from "lucide-react"
+import { Search, Menu as MenuIcon, LogIn, UserPlus, LogOut, User, UtensilsCrossed, History, Home } from "lucide-react"
 import { CartSidebar } from "@/components/cart-sidebar"
 import { AuthModal } from "@/components/auth-modal"
 import { useState } from "react"
@@ -25,6 +25,11 @@ export function Header() {
   const handleAdminLogin = () => {
     navigate("/admin/login")
   }
+
+  const handleRiderLogin = () => {
+    navigate("/rider/login")
+  }
+
   const openSignUp = () => {
     setAuthMode("signup")
     setAuthModalOpen(true)
@@ -32,6 +37,15 @@ export function Header() {
   const handleLogout = () => {
     dispatch(logout())
     navigate("/") // redirect to homepage after logout
+  }
+
+  // ✅ NEW: Handle Order History
+  const handleOrderHistory = () => {
+    if (isAuthenticated) {
+      navigate("/order-history")
+    } else {
+      openSignIn() // If not logged in, show sign in modal
+    }
   }
 
   return (
@@ -62,12 +76,32 @@ export function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-6">
             <Link
+              to="/"
+              className="flex items-center space-x-2 text-foreground hover:text-amber-600 transition-all font-medium group"
+            >
+              <Home className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+              <span>Home</span>
+            </Link>
+
+            <Link
               to="/menu"
               className="flex items-center space-x-2 text-foreground hover:text-amber-600 transition-all font-medium group"
             >
               <UtensilsCrossed className="w-4 h-4 group-hover:rotate-12 transition-transform duration-200" />
               <span>Menu</span>
             </Link>
+
+            {/* ✅ ORDER HISTORY BUTTON */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleOrderHistory}
+              className="flex items-center space-x-2 text-foreground hover:text-amber-600 hover:bg-amber-50 transition-all font-medium"
+            >
+              <History className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+              <span>Orders</span>
+            </Button>
+
             <Link to="/about" className="text-foreground hover:text-amber-600 transition-colors font-medium">
               About
             </Link>
@@ -80,9 +114,30 @@ export function Header() {
             {/* Auth Buttons */}
             {isAuthenticated ? (
               <div className="flex items-center space-x-3">
-                <User className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{user?.name || "User"}</span>
-                <Button variant="ghost" size="sm" onClick={handleLogout} className="hover:bg-amber-50">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 bg-gradient-to-br from-amber-100 to-orange-100 rounded-full flex items-center justify-center">
+                    <User className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-900">{user?.name || "User"}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-amber-600 font-bold">{user?.loyaltyPoints || 0} pts</span>
+                      <span className="text-gray-300">|</span>
+                      <button
+                        onClick={handleOrderHistory}
+                        className="text-xs text-amber-600 hover:text-amber-700 text-left"
+                      >
+                        Orders
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="hover:bg-amber-50 border border-amber-200"
+                >
                   <LogOut className="w-4 h-4 mr-2" />
                   Sign Out
                 </Button>
@@ -108,10 +163,19 @@ export function Header() {
                   variant="outline"
                   size="sm"
                   onClick={handleAdminLogin}
-
                   className="border-amber-500 text-amber-600 hover:bg-amber-50"
                 >
                   Admin Login
+                </Button>
+
+                {/* ✅ RIDER LOGIN BUTTON */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRiderLogin}
+                  className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                >
+                  Rider Login
                 </Button>
               </>
             )}
@@ -129,6 +193,16 @@ export function Header() {
               <SheetContent side="right" className="w-80 bg-background/95 backdrop-blur-sm">
                 <div className="flex flex-col space-y-8 mt-8">
                   <nav className="flex flex-col space-y-6">
+                    {/* Home */}
+                    <Link
+                      to="/"
+                      className="flex items-center text-foreground hover:text-amber-600 text-lg font-medium py-2 border-b border-border/50"
+                    >
+                      <Home className="w-5 h-5 mr-2 text-amber-600" />
+                      Home
+                    </Link>
+
+                    {/* Menu */}
                     <Link
                       to="/menu"
                       className="flex items-center text-foreground hover:text-amber-600 text-lg font-medium py-2 border-b border-border/50"
@@ -136,9 +210,22 @@ export function Header() {
                       <UtensilsCrossed className="w-5 h-5 mr-2 text-amber-600" />
                       Menu
                     </Link>
+
+                    {/* ✅ ORDER HISTORY (Mobile) */}
+                    <button
+                      onClick={handleOrderHistory}
+                      className="flex items-center text-foreground hover:text-amber-600 text-lg font-medium py-2 border-b border-border/50 text-left"
+                    >
+                      <History className="w-5 h-5 mr-2 text-amber-600" />
+                      My Orders
+                    </button>
+
+                    {/* About */}
                     <Link to="/about" className="text-foreground hover:text-amber-600 text-lg font-medium py-2 border-b border-border/50">
                       About
                     </Link>
+
+                    {/* Contact */}
                     <Link to="/contact" className="text-foreground hover:text-amber-600 text-lg font-medium py-2 border-b border-border/50">
                       Contact
                     </Link>
@@ -146,14 +233,33 @@ export function Header() {
 
                   {/* Mobile Auth Buttons */}
                   {isAuthenticated ? (
-                    <Button
-                      variant="outline"
-                      onClick={handleLogout}
-                      className="justify-start bg-transparent hover:bg-amber-50 border-amber-200"
-                    >
-                      <LogOut className="w-5 h-5 mr-3" />
-                      Logout
-                    </Button>
+                    <>
+                      {/* User Info */}
+                      <div className="flex items-center space-x-3 p-3 bg-amber-50 rounded-lg">
+                        <div className="w-10 h-10 bg-gradient-to-br from-amber-100 to-orange-100 rounded-full flex items-center justify-center">
+                          <User className="w-5 h-5 text-amber-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{user?.name || "User"}</p>
+                          <button
+                            onClick={handleOrderHistory}
+                            className="text-sm text-amber-600 hover:text-amber-700 mt-1"
+                          >
+                            View Order History
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Logout Button */}
+                      <Button
+                        variant="outline"
+                        onClick={handleLogout}
+                        className="justify-start bg-transparent hover:bg-amber-50 border-amber-200"
+                      >
+                        <LogOut className="w-5 h-5 mr-3" />
+                        Logout
+                      </Button>
+                    </>
                   ) : (
                     <div className="flex flex-col space-y-3 pt-4">
                       {/* Sign In */}
@@ -182,6 +288,15 @@ export function Header() {
                         className="justify-start border-amber-500 text-amber-600 hover:bg-amber-50"
                       >
                         Admin Login
+                      </Button>
+
+                      {/* ✅ Rider Login */}
+                      <Button
+                        variant="outline"
+                        onClick={handleRiderLogin}
+                        className="justify-start border-blue-500 text-blue-600 hover:bg-blue-50"
+                      >
+                        Rider Login
                       </Button>
                     </div>
                   )}

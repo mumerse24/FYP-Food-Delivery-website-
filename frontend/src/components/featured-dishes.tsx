@@ -3,50 +3,56 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Star, Clock } from "lucide-react"
 
-const featuredDishes = [
-  {
-    id: 1,
-    name: "Margherita Pizza",
-    description: "Fresh tomatoes, mozzarella, and basil on crispy crust",
-    price: "$18.99",
-    rating: 4.8,
-    time: "25-30 min",
-    image: "/margherita-pizza-with-fresh-basil.png",
-    badge: "Popular",
-  },
-  {
-    id: 2,
-    name: "Chicken Burger",
-    description: "Grilled chicken breast with lettuce, tomato, and special sauce",
-    price: "$14.99",
-    rating: 4.6,
-    time: "20-25 min",
-    image: "/gourmet-chicken-burger-with-fresh-ingredients.png",
-    badge: "New",
-  },
-  {
-    id: 3,
-    name: "Caesar Salad",
-    description: "Crisp romaine lettuce with parmesan, croutons, and caesar dressing",
-    price: "$12.99",
-    rating: 4.7,
-    time: "15-20 min",
-    image: "/fresh-caesar-salad-with-parmesan-and-croutons.png",
-    badge: "Healthy",
-  },
-  {
-    id: 4,
-    name: "Beef Tacos",
-    description: "Seasoned ground beef with fresh salsa and cheese",
-    price: "$16.99",
-    rating: 4.9,
-    time: "20-25 min",
-    image: "/delicious-beef-tacos-with-fresh-toppings.png",
-    badge: "Spicy",
-  },
-]
+import { useState, useEffect } from "react"
+import api from "@/services/api"
+
+export interface FeaturedDish {
+  _id: string;
+  name: string;
+  description: string;
+  price: number;
+  rating: { average: number; count: number };
+  preparationTime: string;
+  images: string[];
+  isPopular: boolean;
+  category: string;
+}
 
 export function FeaturedDishes() {
+  const [dishes, setDishes] = useState<FeaturedDish[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPopularDishes = async () => {
+      try {
+        const response = await api.get('/menu/popular/all?limit=4');
+        if (response.data.success) {
+          setDishes(response.data.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch popular dishes:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPopularDishes();
+  }, []);
+
+  if (loading) {
+    return (
+      <section className="py-16 bg-muted/30">
+        <div className="container mx-auto px-4 text-center">
+          <p>Loading popular dishes...</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (dishes.length === 0) {
+    return null; // Don't show the section if no dishes found
+  }
+
   return (
     <section className="py-16 bg-muted/30">
       <div className="container mx-auto px-4">
@@ -58,38 +64,42 @@ export function FeaturedDishes() {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {featuredDishes.map((dish) => (
-            <Card key={dish.id} className="bg-card border-border hover:shadow-lg transition-shadow">
-              <CardContent className="p-0">
+          {dishes.map((dish) => (
+            <Card key={dish._id} className="bg-card border-border hover:shadow-lg transition-shadow">
+              <CardContent className="p-0 flex flex-col h-full">
                 <div className="relative">
                   <img
-                    src={dish.image || "/placeholder.svg"}
+                    src={(dish.images && dish.images.length > 0) ? dish.images[0] : "/placeholder.svg"}
                     alt={dish.name}
                     className="w-full h-48 object-cover rounded-t-lg"
                   />
-                  <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground">{dish.badge}</Badge>
+                  {dish.isPopular && <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground">Popular</Badge>}
                 </div>
 
-                <div className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-card-foreground">{dish.name}</h3>
-                    <span className="font-bold text-primary">{dish.price}</span>
+                <div className="flex-1 p-4 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-card-foreground line-clamp-1" title={dish.name}>{dish.name}</h3>
+                      <span className="font-bold text-primary whitespace-nowrap">Rs. {dish.price}</span>
+                    </div>
+
+                    <p className="text-sm text-muted-foreground line-clamp-2 mt-2" title={dish.description}>{dish.description}</p>
                   </div>
 
-                  <p className="text-sm text-muted-foreground text-pretty">{dish.description}</p>
+                  <div className="space-y-4 mt-auto">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center space-x-1">
+                        <Star className="w-4 h-4 text-secondary fill-current" />
+                        <span className="text-muted-foreground truncate max-w-[50%]">{dish.rating?.average?.toFixed(1) || "New"} ({dish.rating?.count || 0})</span>
+                      </div>
+                      <div className="flex items-center space-x-1 shrink-0">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">{dish.preparationTime}</span>
+                      </div>
+                    </div>
 
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center space-x-1">
-                      <Star className="w-4 h-4 text-secondary fill-current" />
-                      <span className="text-muted-foreground">{dish.rating}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Clock className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">{dish.time}</span>
-                    </div>
+                    <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">Order Now</Button>
                   </div>
-
-                  <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">Order Now</Button>
                 </div>
               </CardContent>
             </Card>

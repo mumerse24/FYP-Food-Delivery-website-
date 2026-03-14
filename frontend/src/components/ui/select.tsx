@@ -1,0 +1,20 @@
+"use client"
+
+import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
+import { cn } from "@/lib/utils"
+
+const selectVariants = cva(
+  "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50",
+)
+
+const Select = React.forwardRef<
+  HTMLSelectElement,
+  React.SelectHTMLAttributes<HTMLSelectElement> & VariantProps<typeof selectVariants>
+>(({ className, ...props }, ref) => {
+  return <select ref={ref} className={cn(selectVariants(), className)} {...props} />
+})
+
+Select.displayName = "Select"
+
+export { Select }
